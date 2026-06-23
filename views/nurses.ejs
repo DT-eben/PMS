@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>PMS - Nurses</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  display: flex;
+  height: 100vh;
+  background: #f4f6f9;
+}
+
+.sidebar {
+  width: 220px;
+  background: #1e293b;
+  color: #fff;
+  padding: 20px;
+}
+
+.sidebar h2 {
+  margin-bottom: 20px;
+}
+
+.sidebar a {
+  display: block;
+  padding: 12px;
+  margin-bottom: 10px;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+.sidebar a:hover,
+.sidebar .active {
+  background: #3b82f6;
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 30px 30px 30px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+  width: 320px;
+}
+
+.search-box input {
+  border: none;
+  outline: none;
+  width: 100%;
+  margin-left: 8px;
+}
+
+.staff-card {
+  transition: 0.2s;
+  cursor: pointer;
+  border: none;
+  border-left: 4px solid #3b82f6;
+  background-color: #ffffff;
+  position: relative;
+}
+
+.staff-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
+.card-link-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+#settingsSection {
+  display: none;
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.add-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background: #1e293b;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  text-decoration: none;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+  transition: 0.2s;
+  z-index: 999;
+}
+
+.add-btn:hover {
+  background: #334155;
+  transform: scale(1.1);
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <h2>PMS</h2>
+  <a href="/dashboard">Dashboard</a>
+
+  <!-- Patients: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/records">Patients</a>
+  <% } %>
+
+  <!-- Visits: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/visits">Visits</a>
+  <% } %>
+
+  <!-- Doctors list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/doctors">Doctors</a>
+  <% } %>
+
+  <!-- Queue: doctor only -->
+  <% if (role === 'doctor') { %>
+    <a href="/queue">Queue</a>
+  <% } %>
+
+  <!-- Nurses list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/nurses" class="active">Nurses</a>
+  <% } %>
+
+  <!-- Admitted: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/admitted">Admitted</a>
+  <% } %>
+
+  <!-- Lab: lab only -->
+  <% if (role === 'lab') { %>
+    <a href="/lab">Labs</a>
+  <% } %>
+
+  <a href="/settings">Settings</a>
+</div>
+<div class="main">
+
+  <div class="topbar">
+    <h2 id="title">Nursing Staff</h2>
+
+    <div class="search-box">
+      <i class="bi bi-search"></i>
+      <input type="text" id="searchInput" placeholder="Search nurses..." onkeyup="searchStaff()">
+    </div>
+
+     <span style="font-size:14px;color:#64748b;font-weight:500;"><%= name %></span>
+  </div>
+
+  <!-- NURSES -->
+  <div id="staffSection">
+
+    <div class="container-fluid">
+      <div class="row g-4" id="staffGrid">
+
+        <% if (nurses.length === 0) { %>
+          <p>No nurses added yet.</p>
+        <% } %>
+
+        <% nurses.forEach(nurse => { %>
+          <div class="col-md-6 col-lg-4 staff-item">
+
+            <div class="card staff-card shadow-sm">
+              <a href="/staff/<%= nurse._id %>" class="card-link-overlay"></a>
+
+              <div class="card-body">
+                <h5 class="card-title"><%= nurse.name %></h5>
+
+                <p class="text-muted mb-1">
+                  ID: #<%= nurse.staffID %>
+                </p>
+
+                <p class="text-muted mb-1">
+                  Department: <%= nurse.department || "General" %>
+                </p>
+
+                <p class="text-muted">
+                  Status:
+                  <span class="text-success">On Duty</span>
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+        <% }) %>
+
+      </div>
+    </div>
+
+  </div>
+
+  
+
+</div>
+
+<a href="/addnurse" class="add-btn">
+  <i class="bi bi-plus-lg"></i>
+</a>
+
+<script>
+function searchStaff() {
+  let input = document.getElementById("searchInput").value.toLowerCase();
+  let items = document.querySelectorAll(".staff-item");
+
+  items.forEach(item => {
+    let text = item.innerText.toLowerCase();
+    item.style.display = text.includes(input) ? "block" : "none";
+  });
+}
+
+
+function searchStaff() {
+
+  const input =
+    document.getElementById("searchInput")
+    .value
+    .toLowerCase()
+    .trim();
+
+  const items =
+    document.querySelectorAll(".staff-item");
+
+  const grid =
+    document.getElementById("staffGrid");
+
+  let visibleCount = 0;
+
+  items.forEach(item => {
+
+    const text =
+      item.innerText
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+
+    if (text.includes(input)) {
+
+      item.style.display = "";
+      visibleCount++;
+
+    } else {
+
+      item.style.display = "none";
+    }
+
+  });
+
+  // remove old message
+  const oldMessage =
+    document.getElementById("noResultsMessage");
+
+  if (oldMessage) {
+    oldMessage.remove();
+  }
+
+  // no results
+  if (visibleCount === 0) {
+
+    const message = document.createElement("div");
+
+    message.id = "noResultsMessage";
+
+    message.className = "col-12";
+
+    message.innerHTML = `
+      <div style="
+        text-align:center;
+        padding:40px;
+        color:#64748b;
+      ">
+        <i class="bi bi-search" style="font-size:30px;"></i>
+
+        <p style="margin-top:10px;">
+          No nurses found
+        </p>
+      </div>
+    `;
+
+    grid.appendChild(message);
+  }
+
+}
+
+function showSettings() {
+  document.getElementById("staffSection").style.display = "none";
+  document.getElementById("settingsSection").style.display = "block";
+  document.getElementById("title").innerText = "Settings";
+}
+
+function showStaff() {
+  document.getElementById("staffSection").style.display = "block";
+  document.getElementById("settingsSection").style.display = "none";
+  document.getElementById("title").innerText = "Nursing Staff";
+}
+</script>
+
+</body>
+</html>

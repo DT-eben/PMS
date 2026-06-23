@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Add Visit</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <style>
+    body { background-color: #f8f9fa; }
+    .form-section {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    }
+    .form-title {
+      margin-bottom: 2rem;
+      border-bottom: 2px solid #dee2e6;
+      padding-bottom: 0.75rem;
+    }
+    .alert-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
+    .alert-box.success { background: #dcfce7; color: #166534; }
+    .alert-box.error   { background: #fee2e2; color: #991b1b; }
+
+    /* MODAL */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:white; border-radius:12px; width:100%; max-width:480px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.2); margin:20px; }
+    .modal-hdr { background:#1e293b; color:white; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; }
+    .modal-hdr h5 { margin:0; font-size:16px; font-weight:600; }
+    .modal-hdr button { background:transparent; border:none; color:#94a3b8; font-size:22px; cursor:pointer; line-height:1; }
+    .modal-hdr button:hover { color:white; }
+    .modal-bdy { padding:22px; }
+    .modal-ftr { padding:14px 22px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end; gap:10px; }
+  </style>
+</head>
+<body>
+
+<% if (success && success.length > 0) { %>
+  <div class="alert-box success"><%= success %></div>
+<% } %>
+<% if (error && error.length > 0) { %>
+  <div class="alert-box error"><%= error %></div>
+<% } %>
+
+<div class="container my-5">
+  <div class="form-section">
+
+    <h2 class="form-title text-primary">
+      <i class="bi bi-clipboard-plus me-2"></i>Add Visit
+    </h2>
+
+    <div class="mb-4">
+      <strong>Patient:</strong> <%= patient.name %><br>
+      <small>ID: <%= patient.patientID %></small>
+    </div>
+
+    <!-- MAIN VISIT FORM -->
+    <form method="POST" action="/add-visit/<%= patient._id %>">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="mt-2">
+        <h5 class="mb-3 text-secondary">
+          <i class="bi bi-heart-pulse me-2"></i>Vitals
+        </h5>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Temperature (°C)</label>
+            <input type="number" step="0.1" class="form-control" name="temperature" id="v_temp" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Blood Pressure</label>
+            <input type="text" class="form-control" name="bloodPressure" id="v_bp" placeholder="e.g. 120/80" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Heart Rate (bpm)</label>
+            <input type="number" class="form-control" name="heartRate" id="v_hr" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Respiratory Rate</label>
+            <input type="number" class="form-control" name="respiratoryRate" id="v_rr" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Weight (kg)</label>
+            <input type="number" step="0.1" class="form-control" name="weight" id="v_wt" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Height (cm)</label>
+            <input type="number" step="0.1" class="form-control" name="height" id="v_ht" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="form-label">Assign Doctor</label>
+        <select name="doctor" class="form-select" required>
+          <option value="">Select doctor...</option>
+          <% doctors.forEach(doc => { %>
+            <option value="<%= doc._id %>">Dr. <%= doc.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="mt-4">
+        <label class="form-label">Notes (optional)</label>
+        <textarea class="form-control" name="notes" id="v_notes" rows="3" placeholder="Any observations..."></textarea>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+        <button type="button" class="btn btn-primary px-4" id="openAdmitBtn">
+          <i class="bi bi-hospital me-1"></i> Admit Patient
+        </button>
+        <button type="submit" class="btn btn-success px-4">
+          <i class="bi bi-save me-2"></i>Add Visit & Send to Queue
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+
+  <div class="text-center mt-4">
+    <a href="/patient/<%= patient._id %>" class="btn btn-outline-primary">
+      <i class="bi bi-arrow-left-circle me-2"></i>Back to Profile
+    </a>
+  </div>
+</div>
+
+
+<!-- ADMIT MODAL — outside the visit form -->
+<div class="modal-overlay" id="admitOverlay">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h5><i class="bi bi-hospital me-2"></i>Admit Patient</h5>
+      <button id="closeAdmitBtn">✕</button>
+    </div>
+
+    <!-- Posts to the combined visit+admit route -->
+    <form method="POST" action="/admit-direct/<%= patient._id %>" id="admitForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <!-- Vitals will be copied here by JS before submit -->
+      <input type="hidden" name="temperature"     id="a_temp">
+      <input type="hidden" name="bloodPressure"   id="a_bp">
+      <input type="hidden" name="heartRate"        id="a_hr">
+      <input type="hidden" name="respiratoryRate"  id="a_rr">
+      <input type="hidden" name="weight"           id="a_wt">
+      <input type="hidden" name="height"           id="a_ht">
+      <input type="hidden" name="notes"            id="a_notes">
+      <input type="hidden" name="doctor"           id="a_doctor">
+
+      <div class="modal-bdy">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Reason for Admission</label>
+          <textarea name="admissionReason" class="form-control" rows="2" required
+            placeholder="e.g. Severe hypertension requiring monitoring"></textarea>
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">Ward</label>
+            <input type="text" name="ward" class="form-control" required placeholder="e.g. Emergency">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">Bed</label>
+            <input type="text" name="bed" class="form-control" placeholder="e.g. Bed 4">
+          </div>
+        </div>
+        <div class="mt-3">
+          <label class="form-label fw-semibold">Initial Status</label>
+          <select name="admitStatus" class="form-select">
+            <option value="observation">Observation</option>
+            <option value="stable">Stable</option>
+            <option value="critical">Critical</option>
+            <option value="chronic">Chronic</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-ftr">
+        <button type="button" class="btn btn-light" id="cancelAdmitBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="confirmAdmitBtn">
+          <i class="bi bi-hospital me-1"></i> Confirm Admission
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  var overlay = document.getElementById('admitOverlay');
+
+  document.getElementById('openAdmitBtn').addEventListener('click', function () {
+    overlay.classList.add('open');
+  });
+  document.getElementById('closeAdmitBtn').addEventListener('click', function () {
+    overlay.classList.remove('open');
+  });
+  document.getElementById('cancelAdmitBtn').addEventListener('click', function () {
+    overlay.classList.remove('open');
+  });
+  overlay.addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+
+  // Copy vitals from the visit form into the hidden admit form fields before submit
+  document.getElementById('admitForm').addEventListener('submit', function () {
+    document.getElementById('a_temp').value   = document.getElementById('v_temp').value;
+    document.getElementById('a_bp').value     = document.getElementById('v_bp').value;
+    document.getElementById('a_hr').value     = document.getElementById('v_hr').value;
+    document.getElementById('a_rr').value     = document.getElementById('v_rr').value;
+    document.getElementById('a_wt').value     = document.getElementById('v_wt').value;
+    document.getElementById('a_ht').value     = document.getElementById('v_ht').value;
+    document.getElementById('a_notes').value  = document.getElementById('v_notes').value;
+    // grab selected doctor value
+    var docSelect = document.querySelector('select[name="doctor"]');
+    document.getElementById('a_doctor').value = docSelect ? docSelect.value : '';
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admitted Patients</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet"/>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+body { display:flex; background:#f4f6f9; min-height:100vh; }
+
+.sidebar { width:220px; background:#1e293b; color:white; padding:20px; flex-shrink:0; }
+.sidebar h2 { margin-bottom:20px; font-size:18px; }
+.sidebar a {  display:block;
+  color:white;
+  text-decoration:none;
+  padding:12px;
+  border-radius:8px;
+  margin-bottom:8px;
+  font-size:14px;
+  transition:0.2s;
+ }
+.sidebar a:hover, .sidebar .active{
+  background:#3b82f6;
+}
+
+
+.main { flex:1; padding:30px; overflow-y:auto; }
+.topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+.topbar h2 { font-size:20px; font-weight:600; color:#0f172a; }
+
+.flash { padding:12px 18px; border-radius:8px; margin-bottom:20px; font-size:14px; font-weight:500; }
+.flash-success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+.flash-error   { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+
+/* STATS */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:26px; }
+.stat-box { background:white; border-radius:10px; padding:18px; border:1px solid #e2e8f0; }
+.stat-box p { font-size:12px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+.stat-box h3 { font-size:26px; font-weight:700; color:#0f172a; }
+
+/* TABLE CARD */
+.table-card { background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; }
+.table-head { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #f1f5f9; }
+.table-head h3 { font-size:14px; font-weight:600; color:#0f172a; }
+
+table { width:100%; border-collapse:collapse; }
+thead tr { background:#fafafa; border-bottom:1px solid #f1f5f9; }
+thead th { padding:12px 16px; font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; text-align:left; }
+tbody tr { border-bottom:1px solid #f8fafc; transition:0.15s; cursor:pointer; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:#f8fafc; }
+tbody td { padding:14px 16px; font-size:14px; color:#1e293b; }
+.td-sub { font-size:12px; color:#94a3b8; margin-top:2px; }
+
+/* STATUS BADGES */
+.badge { padding:4px 11px; border-radius:20px; font-size:12px; font-weight:600; }
+.badge-stable      { background:#dcfce7; color:#166534; }
+.badge-critical    { background:#fee2e2; color:#991b1b; }
+.badge-observation { background:#fef9c3; color:#a16207; }
+.badge-chronic     { background:#ede9fe; color:#6d28d9; }
+.badge-deceased    { background:#f1f5f9; color:#475569; }
+.badge-discharged  { background:#dbeafe; color:#1d4ed8; }
+
+.emergency-tag { font-size:11px; font-weight:600; color:#dc2626; background:#fee2e2; padding:2px 7px; border-radius:10px; margin-left:6px; }
+
+.empty { padding:50px; text-align:center; color:#94a3b8; font-size:14px; }
+.empty i { font-size:32px; display:block; margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>PMS</h2>
+  <a href="/dashboard">Dashboard</a>
+
+  <!-- Patients: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/records">Patients</a>
+  <% } %>
+
+  <!-- Visits: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/visits">Visits</a>
+  <% } %>
+
+  <!-- Doctors list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/doctors">Doctors</a>
+  <% } %>
+
+  <!-- Queue: doctor only -->
+  <% if (role === 'doctor') { %>
+    <a href="/queue">Queue</a>
+  <% } %>
+
+  <!-- Nurses list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/nurses">Nurses</a>
+  <% } %>
+
+  <!-- Admitted: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/admitted" class="active">Admitted</a>
+  <% } %>
+
+  <!-- Lab: lab only -->
+  <% if (role === 'lab') { %>
+    <a href="/lab">Labs</a>
+  <% } %>
+
+  <a href="/settings">Settings</a>
+</div>
+
+<div class="main">
+
+  <div class="topbar">
+    <h2>Admitted Patients</h2>
+    <span style="font-size:14px;color:#64748b;font-weight:500;"><%= name %></span>
+  </div>
+
+  <% if (success && success.length > 0) { %>
+    <div class="flash flash-success"><i class="bi bi-check-circle me-2"></i><%= success %></div>
+  <% } %>
+  <% if (error && error.length > 0) { %>
+    <div class="flash flash-error"><i class="bi bi-exclamation-circle me-2"></i><%= error %></div>
+  <% } %>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-box">
+      <p>Total Admitted</p>
+      <h3><%= admissions.length %></h3>
+    </div>
+    <div class="stat-box">
+      <p>Critical</p>
+      <h3 style="color:#dc2626;"><%= admissions.filter(a => a.status === 'critical').length %></h3>
+    </div>
+    <div class="stat-box">
+      <p>Stable</p>
+      <h3 style="color:#16a34a;"><%= admissions.filter(a => a.status === 'stable').length %></h3>
+    </div>
+    <div class="stat-box">
+      <p>Observation</p>
+      <h3 style="color:#d97706;"><%= admissions.filter(a => a.status === 'observation').length %></h3>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-card">
+    <div class="table-head">
+      <h3><i class="bi bi-hospital me-2"></i>Current Admissions</h3>
+    </div>
+
+    <% if (admissions.length === 0) { %>
+      <div class="empty">
+        <i class="bi bi-hospital"></i>
+        No admitted patients at the moment
+      </div>
+    <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Patient</th>
+          <th>Ward / Bed</th>
+          <th>Admitted By</th>
+          <th>Reason</th>
+          <th>Admitted</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% admissions.forEach(a => { %>
+        <tr class="admission-row" data-href="/admitted/<%= a._id %>">
+          <td>
+            <div style="font-weight:600;">
+              <%= a.patient ? a.patient.name : '—' %>
+              <% if (a.isEmergency) { %><span class="emergency-tag">Emergency</span><% } %>
+            </div>
+            <div class="td-sub"><%= a.patient ? a.patient.patientID : '' %></div>
+          </td>
+          <td>
+            <div><%= a.ward || '—' %></div>
+            <div class="td-sub"><%= a.bed ? 'Bed ' + a.bed : '' %></div>
+          </td>
+          <td><%= a.admittedBy ? a.admittedBy.name : '—' %></td>
+          <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <%= a.admissionReason || '—' %>
+          </td>
+          <td>
+            <div><%= new Date(a.admittedAt).toLocaleDateString('en-GB') %></div>
+            <div class="td-sub"><%= new Date(a.admittedAt).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) %></div>
+          </td>
+          <td>
+            <% if (a.status === 'stable') { %>
+              <span class="badge badge-stable">Stable</span>
+            <% } else if (a.status === 'critical') { %>
+              <span class="badge badge-critical">Critical</span>
+            <% } else if (a.status === 'observation') { %>
+              <span class="badge badge-observation">Observation</span>
+            <% } else if (a.status === 'chronic') { %>
+              <span class="badge badge-chronic">Chronic</span>
+            <% } else if (a.status === 'deceased') { %>
+              <span class="badge badge-deceased">Deceased</span>
+            <% } else if (a.status === 'discharged') { %>
+              <span class="badge badge-discharged">Discharged</span>
+            <% } %>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+
+</div>
+<script>
+document.querySelectorAll('.admission-row').forEach(row => {
+  row.addEventListener('click', () => {
+    window.location.href = row.dataset.href;
+  });
+});
+</script>
+</body>
+</html>

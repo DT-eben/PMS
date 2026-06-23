@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admitted - <%= admission.patient.name %></title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet"/>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+body { display:flex; background:#f4f6f9; min-height:100vh; }
+
+.sidebar { width:220px; background:#1e293b; color:white; padding:20px; flex-shrink:0; }
+.sidebar h2 { margin-bottom:20px; font-size:18px; }
+.sidebar a { display:block; color:#94a3b8; text-decoration:none; padding:11px 13px; border-radius:7px; margin-bottom:4px; font-size:14px; transition:0.15s; }
+.sidebar a:hover, .sidebar .active { background:#263548; color:white; }
+
+.main { flex:1; padding:30px; overflow-y:auto; }
+
+.topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+.back-btn { width:40px; height:40px; border-radius:9px; background:white; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; text-decoration:none; color:#0f172a; transition:0.2s; }
+.back-btn:hover { background:#f8fafc; }
+
+.flash { padding:12px 18px; border-radius:8px; margin-bottom:18px; font-size:14px; font-weight:500; }
+.flash-success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+.flash-error   { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+
+.header-card { background:#1e293b; border-radius:12px; padding:24px; color:white; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; }
+.header-card h3 { font-size:20px; font-weight:600; margin-bottom:4px; }
+.header-card p { font-size:13px; color:#94a3b8; }
+.status-select { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:8px; padding:7px 12px; font-size:13px; cursor:pointer; }
+.status-select option { background:#1e293b; color:white; }
+
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
+
+.card-box { background:white; border-radius:12px; padding:20px; border:1px solid #e2e8f0; }
+.card-box h4 { font-size:14px; font-weight:600; color:#0f172a; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:7px; }
+
+.info-row { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f8fafc; font-size:13.5px; }
+.info-row:last-child { border-bottom:none; }
+.info-row .lbl { color:#94a3b8; font-weight:500; }
+.info-row .val { color:#0f172a; font-weight:500; text-align:right; }
+
+.badge { padding:4px 11px; border-radius:20px; font-size:12px; font-weight:600; }
+.badge-stable      { background:#dcfce7; color:#166634; }
+.badge-critical    { background:#fee2e2; color:#991b1b; }
+.badge-observation { background:#fef9c3; color:#a16207; }
+.badge-chronic     { background:#ede9fe; color:#6d28d9; }
+.badge-deceased    { background:#f1f5f9; color:#475569; }
+.badge-discharged  { background:#dbeafe; color:#1d4ed8; }
+
+.round-item { padding:14px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; margin-bottom:10px; }
+.round-item:last-child { margin-bottom:0; }
+.round-meta { font-size:12px; color:#94a3b8; margin-top:6px; }
+.round-text { font-size:14px; color:#1e293b; margin-top:4px; white-space:pre-wrap; }
+.round-vitals { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.vital-tag { background:#eef2ff; padding:4px 10px; border-radius:6px; font-size:12px; color:#4338ca; }
+
+/* MEDICATION ITEM */
+.med-item {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  padding:12px 0;
+  border-bottom:1px solid #f8fafc;
+}
+.med-item:last-child { border-bottom:none; }
+.med-name { font-size:14px; font-weight:600; color:#0f172a; }
+.med-detail { font-size:12px; color:#94a3b8; margin-top:2px; }
+
+/* REMOVE BUTTON */
+.btn-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  background: transparent;
+  color: #dc2626;
+  font-size: 11px;
+  cursor: pointer;
+  transition: 0.2s;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  flex-shrink:0;
+}
+
+.btn-remove:hover {
+  background:#fee2e2;
+}
+
+.form-label { font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; }
+.form-control, .form-select { border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; padding:10px 13px; }
+.form-control:focus, .form-select:focus { border-color:#1e293b; box-shadow:0 0 0 3px rgba(30,41,59,0.07); }
+
+.btn-dark-sm { background:#1e293b; color:white; border:none; padding:9px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:0.2s; display:inline-flex; align-items:center; gap:6px; }
+.btn-dark-sm:hover { background:#334155; }
+.btn-red { background:#fee2e2; color:#991b1b; border:none; padding:9px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:0.2s; }
+.btn-red:hover { background:#fecaca; }
+
+.empty-note { color:#94a3b8; font-size:13.5px; text-align:center; padding:20px 0; }
+
+.lab-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:14px 0;
+  border-bottom:1px solid #f1f5f9;
+}
+
+.lab-row:last-child {
+  border-bottom:none;
+}
+
+.lab-test {
+  font-size:14px;
+  font-weight:600;
+  color:#0f172a;
+}
+
+.lab-meta {
+  font-size:12px;
+  color:#94a3b8;
+  margin-top:3px;
+}
+
+.btn-view-lab {
+  border:none;
+  background:#1e293b;
+  color:white;
+  border-radius:6px;
+  padding:6px 12px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.btn-view-lab:hover {
+  background:#334155;
+}
+
+/* MODAL */
+
+.lab-modal-overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+}
+
+.lab-modal-overlay.open {
+  display:flex;
+}
+
+.lab-modal {
+  width:100%;
+  max-width:520px;
+  background:white;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,0.2);
+  margin:20px;
+}
+
+.lab-modal-header {
+  padding:18px 22px;
+  background:#1e293b;
+  color:white;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.lab-modal-header h5 {
+  margin:0;
+  font-size:15px;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.lab-modal-header button {
+  border:none;
+  background:transparent;
+  color:#94a3b8;
+  font-size:20px;
+  cursor:pointer;
+}
+
+.lab-modal-header button:hover {
+  color:white;
+}
+
+.lab-modal-body {
+  padding:22px;
+}
+
+.lab-result-title {
+  font-size:14px;
+  font-weight:700;
+  color:#0f172a;
+  margin-bottom:14px;
+}
+
+.lab-result-content {
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  padding:16px;
+  font-size:14px;
+  color:#334155;
+  line-height:1.7;
+  white-space:pre-wrap;
+}
+
+/* CUSTOM DISCHARGE MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:white; border-radius:12px; width:100%; max-width:480px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.2); margin:20px; }
+.modal-hdr { background:#1e293b; color:white; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; }
+.modal-hdr h5 { margin:0; font-size:16px; font-weight:600; }
+.modal-hdr button { background:transparent; border:none; color:#94a3b8; font-size:22px; cursor:pointer; line-height:1; }
+.modal-hdr button:hover { color:white; }
+.modal-bdy { padding:22px; }
+.modal-ftr { padding:14px 22px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end; gap:10px; }
+
+
+.lab-file-box {
+  margin-top:16px;
+  padding:14px;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+
+  background:#f8fafc;
+}
+
+.lab-file-left {
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.lab-file-left i {
+  font-size:22px;
+  color:#dc2626;
+}
+
+.lab-file-title {
+  font-size:13px;
+  font-weight:600;
+  color:#0f172a;
+}
+
+.lab-file-sub {
+  font-size:12px;
+  color:#94a3b8;
+  margin-top:2px;
+}
+
+.btn-open-pdf {
+  background:#1e293b;
+  color:white;
+  text-decoration:none;
+
+  padding:7px 14px;
+  border-radius:7px;
+
+  font-size:12px;
+  font-weight:600;
+
+  transition:0.2s;
+}
+
+.btn-open-pdf:hover {
+  background:#334155;
+  color:white;
+}
+
+.med-inactive {
+  opacity:0.65;
+}
+
+.med-inactive .med-name {
+  text-decoration:line-through;
+}
+
+.med-discontinued {
+  margin-top:6px;
+
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+
+  background:#f1f5f9;
+  color:#64748b;
+
+  padding:4px 9px;
+  border-radius:999px;
+
+  font-size:11px;
+  font-weight:600;
+}
+
+.btn-remove {
+  width:28px;
+  height:28px;
+
+  border:none;
+  border-radius:7px;
+
+  background:#fee2e2;
+  color:#dc2626;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  cursor:pointer;
+  transition:0.2s;
+
+  flex-shrink:0;
+}
+
+.btn-remove:hover {
+  background:#fecaca;
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>PMS</h2>
+  <a href="/dashboard">Dashboard</a>
+
+  <!-- Patients: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/records">Patients</a>
+  <% } %>
+
+  <!-- Visits: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/visits">Visits</a>
+  <% } %>
+
+  <!-- Doctors list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/doctors">Doctors</a>
+  <% } %>
+
+  <!-- Queue: doctor only -->
+  <% if (role === 'doctor') { %>
+    <a href="/queue">Queue</a>
+  <% } %>
+
+  <!-- Nurses list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/nurses">Nurses</a>
+  <% } %>
+
+  <!-- Admitted: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/admitted" class="active">Admitted</a>
+  <% } %>
+
+  <!-- Lab: lab only -->
+  <% if (role === 'lab') { %>
+    <a href="/lab">Labs</a>
+  <% } %>
+
+  <a href="/settings">Settings</a>
+</div>
+
+<div class="main">
+
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/admitted" class="back-btn"><i class="bi bi-arrow-left"></i></a>
+      <h2 style="font-size:19px;font-weight:600;color:#0f172a;">Admitted Patient</h2>
+    </div>
+    <span style="font-size:14px;color:#64748b;font-weight:500;"><%= name %></span>
+  </div>
+
+  <% if (success && success.length > 0) { %>
+    <div class="flash flash-success"><i class="bi bi-check-circle me-2"></i><%= success %></div>
+  <% } %>
+  <% if (error && error.length > 0) { %>
+    <div class="flash flash-error"><i class="bi bi-exclamation-circle me-2"></i><%= error %></div>
+  <% } %>
+
+  <!-- HEADER CARD -->
+  <div class="header-card">
+    <div>
+      <h3>
+        <%= admission.patient.name %>
+        <% if (admission.isEmergency) { %>
+          <span style="font-size:12px;background:#ef4444;color:white;padding:3px 9px;border-radius:10px;margin-left:8px;font-weight:600;">Emergency</span>
+        <% } %>
+      </h3>
+      <p><%= admission.patient.patientID %> • <%= admission.ward || 'No ward' %> • <%= admission.bed ? 'Bed ' + admission.bed : 'No bed assigned' %></p>
+      <p style="margin-top:6px;">Admitted <%= new Date(admission.admittedAt).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}) %> at <%= new Date(admission.admittedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) %></p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+
+      <!-- ✅ STATUS DROPDOWN — submits via JS, no inline handler -->
+      <form method="POST" action="/admitted/<%= admission._id %>/status" id="statusForm">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <select name="status" class="status-select" id="statusSelect">
+          <option value="observation" <%= admission.status === 'observation' ? 'selected' : '' %>>Observation</option>
+          <option value="stable"      <%= admission.status === 'stable'      ? 'selected' : '' %>>Stable</option>
+          <option value="critical"    <%= admission.status === 'critical'    ? 'selected' : '' %>>Critical</option>
+          <option value="chronic"     <%= admission.status === 'chronic'     ? 'selected' : '' %>>Chronic</option>
+          <option value="deceased"    <%= admission.status === 'deceased'    ? 'selected' : '' %>>Deceased</option>
+        </select>
+      </form>
+
+      <button class="btn-red" id="openDischargeBtn">
+        <i class="bi bi-box-arrow-right me-1"></i> Discharge
+      </button>
+    </div>
+  </div>
+
+  <!-- PATIENT + ADMISSION INFO -->
+  <div class="grid-2">
+
+    <div class="card-box">
+      <h4><i class="bi bi-person"></i> Patient Info</h4>
+      <div class="info-row"><span class="lbl">Name</span><span class="val"><%= admission.patient.name %></span></div>
+      <div class="info-row"><span class="lbl">Gender</span><span class="val"><%= admission.patient.gender || '—' %></span></div>
+      <div class="info-row"><span class="lbl">Phone</span><span class="val"><%= admission.patient.number || '—' %></span></div>
+      <div class="info-row"><span class="lbl">Blood Type</span><span class="val"><%= admission.patient.bloodType || '—' %></span></div>
+      <div class="info-row"><span class="lbl">Allergies</span><span class="val"><%= admission.patient.allergies || 'None' %></span></div>
+      <div class="info-row"><span class="lbl">Emergency Contact</span><span class="val"><%= admission.patient.emergencyContact || '—' %></span></div>
+    </div>
+
+    <div class="card-box">
+      <h4><i class="bi bi-hospital"></i> Admission Details</h4>
+      <div class="info-row"><span class="lbl">Ward</span><span class="val"><%= admission.ward || '—' %></span></div>
+      <div class="info-row"><span class="lbl">Bed</span><span class="val"><%= admission.bed ? 'Bed ' + admission.bed : '—' %></span></div>
+      <div class="info-row"><span class="lbl">Admitted By</span><span class="val"><%= admission.admittedBy ? admission.admittedBy.name : '—' %></span></div>
+      <div class="info-row"><span class="lbl">Status</span>
+        <span class="val">
+          <% if (admission.status === 'stable') { %><span class="badge badge-stable">Stable</span>
+          <% } else if (admission.status === 'critical') { %><span class="badge badge-critical">Critical</span>
+          <% } else if (admission.status === 'observation') { %><span class="badge badge-observation">Observation</span>
+          <% } else if (admission.status === 'chronic') { %><span class="badge badge-chronic">Chronic</span>
+          <% } else if (admission.status === 'deceased') { %><span class="badge badge-deceased">Deceased</span>
+          <% } %>
+        </span>
+      </div>
+      <div class="info-row"><span class="lbl">Reason</span><span class="val" style="max-width:200px;text-align:right;"><%= admission.admissionReason || '—' %></span></div>
+      <div class="info-row"><span class="lbl">Days Admitted</span>
+        <span class="val"><%= Math.ceil((Date.now() - new Date(admission.admittedAt)) / (1000 * 60 * 60 * 24)) %> day(s)</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- WARD ROUNDS -->
+  <div class="grid-2">
+
+    <div class="card-box">
+      <h4><i class="bi bi-clipboard-pulse"></i> Ward Rounds (<%= admission.wardRounds.length %>)</h4>
+      <% if (admission.wardRounds.length === 0) { %>
+        <div class="empty-note">No ward rounds recorded yet</div>
+      <% } else { %>
+        <% admission.wardRounds.slice().reverse().forEach(r => { %>
+        <div class="round-item">
+          <div class="round-text"><%= r.notes %></div>
+          <% if (r.vitals && (r.vitals.temperature || r.vitals.bloodPressure)) { %>
+          <div class="round-vitals">
+            <% if (r.vitals.temperature) { %><span class="vital-tag">Temp: <%= r.vitals.temperature %>°C</span><% } %>
+            <% if (r.vitals.bloodPressure) { %><span class="vital-tag">BP: <%= r.vitals.bloodPressure %></span><% } %>
+            <% if (r.vitals.heartRate) { %><span class="vital-tag">HR: <%= r.vitals.heartRate %> bpm</span><% } %>
+            <% if (r.vitals.respiratoryRate) { %><span class="vital-tag">Resp: <%= r.vitals.respiratoryRate %></span><% } %>
+            <% if (r.vitals.weight) { %><span class="vital-tag">Weight: <%= r.vitals.weight %> kg</span><% } %>
+          </div>
+          <% } %>
+          <div class="round-meta">
+            By <%= r.addedBy ? r.addedBy.name : 'Unknown' %> •
+            <%= new Date(r.addedAt).toLocaleDateString('en-GB') %> at
+            <%= new Date(r.addedAt).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) %>
+          </div>
+        </div>
+        <% }) %>
+      <% } %>
+    </div>
+
+    <div class="card-box">
+      <h4><i class="bi bi-plus-circle"></i> Add Ward Round</h4>
+      <form method="POST" action="/admitted/<%= admission._id %>/round">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="mb-3">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="3" required placeholder="Patient response, observations, plan..."></textarea>
+        </div>
+        <p style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px;">Vitals (optional)</p>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label">Temperature (°C)</label>
+            <input type="number" step="0.1" name="temperature" class="form-control" placeholder="37.0">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Blood Pressure</label>
+            <input type="text" name="bloodPressure" class="form-control" placeholder="120/80">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Heart Rate (bpm)</label>
+            <input type="number" name="heartRate" class="form-control" placeholder="72">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Respiratory Rate</label>
+            <input type="number" name="respiratoryRate" class="form-control" placeholder="16">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Weight (kg)</label>
+            <input type="number" step="0.1" name="weight" class="form-control" placeholder="70">
+          </div>
+        </div>
+        <button type="submit" class="btn-dark-sm"><i class="bi bi-save"></i> Save Round</button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- MEDICATIONS -->
+  <div class="grid-2">
+
+    <div class="card-box">
+      <h4><i class="bi bi-capsule"></i> Medications & IV (<%= admission.medications.length %>)</h4>
+    <% admission.medications.forEach(m => { %>
+
+<div class="med-item <%= !m.active ? 'med-inactive' : '' %>">
+
+  <div>
+
+    <div class="med-name">
+      <%= m.name %>
+    </div>
+
+    <div class="med-detail">
+      <%= m.dosage %> • <%= m.frequency %>
+    </div>
+
+    <div class="med-detail">
+      Added by <%= m.addedBy ? m.addedBy.name : 'Unknown' %>
+    </div>
+
+    <% if (!m.active) { %>
+
+      <div class="med-discontinued">
+        <i class="bi bi-clock-history"></i>
+
+        Discontinued
+        <% if (m.removedAt) { %>
+          on <%= new Date(m.removedAt).toLocaleDateString('en-GB') %>
+        <% } %>
+      </div>
+
+    <% } %>
+
+  </div>
+
+
+  <% if (m.active) { %>
+
+  <form method="POST" action="/admitted/<%= admission._id %>/medication/<%= m._id %>/remove">
+
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <button type="submit" class="btn-remove">
+      <i class="bi bi-x-lg"></i>
+    </button>
+
+  </form>
+
+  <% } %>
+
+</div>
+
+<% }) %>
+    </div>
+
+    <div class="card-box">
+      <h4><i class="bi bi-plus-circle"></i> Add Medication / IV</h4>
+      <form method="POST" action="/admitted/<%= admission._id %>/medication">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="mb-3">
+          <label class="form-label">Medication / Fluid</label>
+          <input type="text" name="name" class="form-control" required placeholder="e.g. Normal Saline, Amoxicillin, IV Drip">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Dosage</label>
+          <input type="text" name="dosage" class="form-control" required placeholder="e.g. 500mg, 1L">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Frequency</label>
+          <input type="text" name="frequency" class="form-control" required placeholder="e.g. Twice daily, Every 8 hours">
+        </div>
+        <button type="submit" class="btn-dark-sm"><i class="bi bi-plus"></i> Add Medication</button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- LAB REQUESTS -->
+<% admission.labRequests.forEach((lr, index) => { %>
+
+<div class="lab-row">
+
+  <div class="lab-left">
+    <div class="lab-test">
+      <%= lr.tests || 'Lab Request' %>
+    </div>
+
+    <div class="lab-meta">
+      Requested
+      <%= new Date(lr.createdAt || lr.date || Date.now()).toLocaleDateString('en-GB') %>
+    </div>
+  </div>
+
+  <div class="lab-right">
+
+    <% if (lr.status === 'lab') { %>
+
+      <span class="badge" style="background:#fef9c3;color:#a16207;">
+        Pending
+      </span>
+
+    <% } else if (lr.status === 'lab-complete') { %>
+
+      <div style="display:flex;align-items:center;gap:10px;">
+
+        <span class="badge" style="background:#dcfce7;color:#166534;">
+          Results Back
+        </span>
+
+        <button
+          type="button"
+          class="btn-view-lab"
+          data-modal="labModal<%= index %>"
+        >
+          View
+        </button>
+
+      </div>
+
+    <% } %>
+
+  </div>
+
+</div>
+
+
+<!-- LAB RESULT MODAL -->
+<div class="lab-modal-overlay" id="labModal<%= index %>">
+
+  <div class="lab-modal">
+
+    <div class="lab-modal-header">
+      <h5>
+        <i class="bi bi-flask"></i>
+        Lab Results
+      </h5>
+
+      <button
+        type="button"
+        class="close-lab-modal"
+        data-close="labModal<%= index %>"
+      >
+        ✕
+      </button>
+    </div>
+
+    <div class="lab-modal-body">
+
+      <div class="lab-result-title">
+        <%= lr.tests %>
+      </div>
+
+      <% if (lr.results || lr.labResults) { %>
+
+<div class="lab-result-content">
+  <%= lr.results || lr.labResults %>
+</div>
+
+<% } %>
+
+
+<% if (lr.labResult) { %>
+
+<div class="lab-file-box">
+
+  <div class="lab-file-left">
+    <i class="bi bi-file-earmark-pdf"></i>
+
+    <div>
+      <div class="lab-file-title">
+        Attached Lab Document
+      </div>
+
+      <div class="lab-file-sub">
+        PDF / Uploaded Result File
+      </div>
+    </div>
+  </div>
+
+  <a
+    href="/<%= lr.labResult %>"
+    target="_blank"
+    class="btn-open-pdf"
+  >
+    Open
+  </a>
+
+</div>
+
+<% } %>
+
+
+<% if (!lr.results && !lr.labResults && !lr.labResult) { %>
+
+<div class="empty-note">
+  No lab result uploaded yet
+</div>
+
+<% } %>
+
+    </div>
+
+  </div>
+
+</div>
+
+<% }) %>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
+      <form method="POST" action="/admitted/<%= admission._id %>/lab">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <div style="flex:1;">
+            <label class="form-label">Request New Lab Test</label>
+            <input type="text" name="tests" class="form-control" placeholder="e.g. Full blood count, Urine analysis" required>
+          </div>
+          <button type="submit" class="btn-dark-sm" style="margin-bottom:2px;">
+            <i class="bi bi-send"></i> Send to Lab
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- DISCHARGE MODAL — custom, no Bootstrap dependency -->
+<div class="modal-overlay" id="dischargeOverlay">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h5><i class="bi bi-box-arrow-right" style="margin-right:8px;"></i>Discharge Patient</h5>
+      <button id="closeDischargeBtn">✕</button>
+    </div>
+    <form method="POST" action="/admitted/<%= admission._id %>/discharge">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="modal-bdy">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Discharge Notes</label>
+          <textarea name="dischargeNotes" class="form-control" rows="4" required
+            placeholder="Condition on discharge, follow-up instructions, medications to continue..."></textarea>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button type="button" class="btn btn-light" id="cancelDischargeBtn">Cancel</button>
+        <button type="submit" class="btn btn-success">
+          <i class="bi bi-check-circle me-1"></i> Confirm Discharge
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script>
+// ✅ STATUS DROPDOWN — submit form on change
+document.getElementById('statusSelect').addEventListener('change', function() {
+  document.getElementById('statusForm').submit();
+});
+
+// ✅ DISCHARGE MODAL
+var overlay = document.getElementById('dischargeOverlay');
+
+document.getElementById('openDischargeBtn').addEventListener('click', function() {
+  overlay.classList.add('open');
+});
+
+document.getElementById('closeDischargeBtn').addEventListener('click', function() {
+  overlay.classList.remove('open');
+});
+
+document.getElementById('cancelDischargeBtn').addEventListener('click', function() {
+  overlay.classList.remove('open');
+});
+
+overlay.addEventListener('click', function(e) {
+  if (e.target === this) overlay.classList.remove('open');
+});
+
+document.querySelectorAll('.btn-view-lab').forEach(btn => {
+
+  btn.addEventListener('click', () => {
+
+    const modalId = btn.dataset.modal;
+
+    document.getElementById(modalId).classList.add('open');
+
+  });
+
+});
+
+document.querySelectorAll('.close-lab-modal').forEach(btn => {
+
+  btn.addEventListener('click', () => {
+
+    const modalId = btn.dataset.close;
+
+    document.getElementById(modalId).classList.remove('open');
+
+  });
+
+});
+
+document.querySelectorAll('.lab-modal-overlay').forEach(modal => {
+
+  modal.addEventListener('click', function(e) {
+
+    if (e.target === this) {
+
+      this.classList.remove('open');
+
+    }
+
+  });
+
+});
+</script>
+
+</body>
+</html>

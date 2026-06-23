@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Add New Patient</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+
+  <style>
+    body { background-color: #f8f9fa; }
+    .form-section {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    }
+    .form-title {
+      margin-bottom: 2rem;
+      border-bottom: 2px solid #dee2e6;
+      padding-bottom: 0.75rem;
+    }
+    .btn-circle {
+      width: 50px; height: 50px; border-radius: 50%;
+      font-size: 1.5rem; display: inline-flex;
+      align-items: center; justify-content: center;
+    }
+    .alert-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; animation: fadeIn 0.3s ease; }
+    .alert-box.success { background: #dcfce7; color: #166534; }
+    .alert-box.error   { background: #fee2e2; color: #991b1b; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* MODAL */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:white; border-radius:12px; width:100%; max-width:480px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.2); margin:20px; }
+    .modal-hdr { background:#1e293b; color:white; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; }
+    .modal-hdr h5 { margin:0; font-size:16px; font-weight:600; }
+    .modal-hdr button { background:transparent; border:none; color:#94a3b8; font-size:22px; cursor:pointer; line-height:1; }
+    .modal-hdr button:hover { color:white; }
+    .modal-bdy { padding:22px; }
+    .modal-ftr { padding:14px 22px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end; gap:10px; }
+  </style>
+</head>
+<body>
+
+<% if (success && success.length > 0) { %>
+  <div class="alert-box success"><%= success %></div>
+<% } %>
+<% if (error && error.length > 0) { %>
+  <div class="alert-box error"><%= error %></div>
+<% } %>
+
+<div class="container my-5">
+  <div class="form-section">
+    <h2 class="form-title text-primary"><i class="bi bi-person-plus-fill me-2"></i>Add New Patient</h2>
+
+    <!-- MAIN PATIENT FORM -->
+    <form method="POST" action="/addpa">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="row g-4">
+
+        <!-- LEFT -->
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label">Full Name *</label>
+            <input type="text" class="form-control" name="name" required minlength="3"
+              pattern="[A-Za-z\s]+" placeholder="e.g. John Doe">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Date of Birth *</label>
+            <input type="date" class="form-control" name="DOB" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Gender *</label>
+            <select class="form-select" name="gender" required>
+              <option value="">Choose...</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Contact Number *</label>
+            <input type="tel" class="form-control" name="number" required
+              pattern="^\+?[0-9]{10,15}$" placeholder="e.g. 0241234567">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" name="email" placeholder="e.g. john@email.com">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Address *</label>
+            <input type="text" class="form-control" name="address" required minlength="5">
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="col-md-6">
+          <div class="mb-3">
+            <label class="form-label">Emergency Contact *</label>
+            <input type="tel" class="form-control" name="emergencyContact" required
+              pattern="^\+?[0-9]{10,15}$" placeholder="e.g. 0249876543">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Next of Kin</label>
+            <input type="text" class="form-control" name="nextOfKin" pattern="[A-Za-z\s]+">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Occupation</label>
+            <input type="text" class="form-control" name="occupation">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Marital Status</label>
+            <select class="form-select" name="maritalStatus">
+              <option value="">Choose...</option>
+              <option>Single</option>
+              <option>Married</option>
+              <option>Divorced</option>
+              <option>Widowed</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Insurance Provider</label>
+            <input type="text" class="form-control" name="insurance">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Insurance Number</label>
+            <input type="text" class="form-control" name="insuranceNumber">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- VITALS -->
+      <div class="mt-4">
+        <h5 class="mb-3 text-secondary">
+          <i class="bi bi-heart-pulse me-2"></i>Vitals
+        </h5>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Temperature (°C)</label>
+            <input type="number" step="0.1" class="form-control" name="temperature" id="v_temp" min="30" max="50">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Blood Pressure</label>
+            <input type="text" class="form-control" name="bloodPressure" id="v_bp"
+              pattern="^[0-9]{2,3}/[0-9]{2,3}$" placeholder="e.g. 120/80">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Heart Rate (bpm)</label>
+            <input type="number" class="form-control" name="heartRate" id="v_hr" min="30" max="200">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Respiratory Rate</label>
+            <input type="number" class="form-control" name="respiratoryRate" id="v_rr" min="10" max="40">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Weight (kg)</label>
+            <input type="number" step="0.1" class="form-control" name="weight" id="v_wt" min="1" max="300">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Height (cm)</label>
+            <input type="number" step="0.1" class="form-control" name="height" id="v_ht" min="30" max="250">
+          </div>
+        </div>
+      </div>
+
+      <!-- DOCTOR -->
+      <div class="mb-4 mt-4">
+        <label class="form-label">Assign Doctor *</label>
+        <select name="doctor" class="form-select" id="v_doctor" required>
+          <option value="">Select doctor...</option>
+          <% doctors.forEach(doc => { %>
+            <option value="<%= doc._id %>">Dr. <%= doc.name %></option>
+          <% }) %>
+        </select>
+        <% if (doctors.length === 0) { %>
+          <small class="text-danger">No doctors currently on duty</small>
+        <% } %>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+        <button type="button" class="btn btn-primary px-4" id="openAdmitBtn">
+          <i class="bi bi-hospital me-1"></i> Admit Patient
+        </button>
+        <button type="submit" class="btn btn-success px-4">
+          <i class="bi bi-save me-2"></i>Register Patient
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="text-center mt-4">
+    <a href="/records" class="btn btn-outline-primary">
+      <i class="bi bi-arrow-left-circle me-2"></i>Back to Dashboard
+    </a>
+  </div>
+</div>
+
+
+<!-- ADMIT MODAL — outside the patient form -->
+<div class="modal-overlay" id="admitOverlay">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h5><i class="bi bi-hospital me-2"></i>Admit New Patient</h5>
+      <button id="closeAdmitBtn">✕</button>
+    </div>
+
+    <!-- All patient + vitals fields get copied here by JS -->
+    <form method="POST" action="/addpa-admit" id="admitForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <!-- Patient fields (mirrored from main form) -->
+      <input type="hidden" name="name">
+      <input type="hidden" name="DOB">
+      <input type="hidden" name="gender">
+      <input type="hidden" name="number">
+      <input type="hidden" name="email">
+      <input type="hidden" name="address">
+      <input type="hidden" name="emergencyContact">
+      <input type="hidden" name="nextOfKin">
+      <input type="hidden" name="occupation">
+      <input type="hidden" name="maritalStatus">
+      <input type="hidden" name="insurance">
+      <input type="hidden" name="insuranceNumber">
+      <!-- Vitals -->
+      <input type="hidden" name="temperature">
+      <input type="hidden" name="bloodPressure">
+      <input type="hidden" name="heartRate">
+      <input type="hidden" name="respiratoryRate">
+      <input type="hidden" name="weight">
+      <input type="hidden" name="height">
+      <input type="hidden" name="doctor">
+
+      <div class="modal-bdy">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Reason for Admission</label>
+          <textarea name="admissionReason" class="form-control" rows="2" required
+            placeholder="e.g. Severe hypertension requiring monitoring"></textarea>
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">Ward</label>
+            <input type="text" name="ward" class="form-control" required placeholder="e.g. Emergency">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">Bed</label>
+            <input type="text" name="bed" class="form-control" placeholder="e.g. Bed 4">
+          </div>
+        </div>
+        <div class="mt-3">
+          <label class="form-label fw-semibold">Initial Status</label>
+          <select name="admitStatus" class="form-select">
+            <option value="observation">Observation</option>
+            <option value="stable">Stable</option>
+            <option value="critical">Critical</option>
+            <option value="chronic">Chronic</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-ftr">
+        <button type="button" class="btn btn-light" id="cancelAdmitBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-hospital me-1"></i> Register & Admit
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  var overlay = document.getElementById('admitOverlay');
+
+  document.getElementById('openAdmitBtn').addEventListener('click', function () {
+    overlay.classList.add('open');
+  });
+  document.getElementById('closeAdmitBtn').addEventListener('click', function () {
+    overlay.classList.remove('open');
+  });
+  document.getElementById('cancelAdmitBtn').addEventListener('click', function () {
+    overlay.classList.remove('open');
+  });
+  overlay.addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+
+  // Before admit form submits, copy all fields from the main patient form
+  document.getElementById('admitForm').addEventListener('submit', function () {
+    var mainForm = document.querySelector('form[action="/addpa"]');
+    var admitForm = this;
+
+    // Copy each named field from the main form into the hidden admit form field
+    var fieldsToCopy = [
+      'name','DOB','gender','number','email','address',
+      'emergencyContact','nextOfKin','occupation','maritalStatus',
+      'insurance','insuranceNumber',
+      'temperature','bloodPressure','heartRate','respiratoryRate','weight','height',
+      'doctor'
+    ];
+
+    fieldsToCopy.forEach(function(fieldName) {
+      var src = mainForm.querySelector('[name="' + fieldName + '"]');
+      var dst = admitForm.querySelector('[name="' + fieldName + '"]');
+      if (src && dst) dst.value = src.value;
+    });
+  });
+</script>
+
+</body>
+</html>

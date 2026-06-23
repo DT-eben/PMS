@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Visits</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family: Arial; }
+
+body { display:flex; height:100vh; background:#f4f6f9; }
+
+/* Sidebar */
+.sidebar {
+  width:220px;
+  background:#1e293b;
+  color:#fff;
+  padding:20px;
+}
+
+.sidebar h2 { margin-bottom:20px; }
+
+.sidebar a {
+  display:block;
+  padding:12px;
+  margin-bottom:10px;
+  color:white;
+  text-decoration:none;
+  border-radius:8px;
+  transition:0.2s;
+}
+
+.sidebar a:hover, .active {
+  background:#3b82f6;
+}
+
+/* Main */
+.main {
+  flex:1;
+  padding:20px;
+}
+
+.topbar {
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:20px;
+}
+
+/* VISITS SECTION */
+#visitsSection {
+  background:#fff;
+  padding:20px;
+  border-radius:10px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* TABLE */
+.top-actions {
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:15px;
+}
+
+.search, .filter {
+  padding:8px;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+}
+
+th, td {
+  padding:12px;
+  border-bottom:1px solid #eee;
+}
+
+th { background:#f1f5f9; }
+
+.status {
+  padding:5px 10px;
+  border-radius:6px;
+  font-size:12px;
+}
+
+.waiting { background:#facc15; }
+.progress { background:#3b82f6; color:white; }
+.done { background:#10b981; color:white; }
+
+.btn {
+  padding:5px 8px;
+  border:none;
+  border-radius:5px;
+  cursor:pointer;
+  margin-right:5px;
+}
+
+.view { background:#3b82f6; color:white; }
+.edit { background:#f59e0b; color:white; }
+
+/* Dashboard-style reusable sections (used for settings too) */
+.cards {
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:15px;
+  margin-bottom:25px;
+}
+
+.card {
+  background:#fff;
+  padding:18px;
+  border-radius:10px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.08);
+}
+
+.section {
+  margin-bottom:25px;
+}
+
+.section h3 {
+  margin-bottom:10px;
+  font-size:15px;
+  color:#333;
+}
+
+.list {
+  background:#fff;
+  border-radius:10px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.08);
+  overflow:hidden;
+}
+
+.list-item {
+  padding:12px 15px;
+  border-bottom:1px solid #eee;
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+}
+
+.list-item:last-child {
+  border-bottom:none;
+}
+
+/* Floating button */
+.add-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background: #1e293b;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  text-decoration: none;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+}
+
+.add-btn:hover {
+  background:#334155;
+  transform:scale(1.1);
+}
+
+/* SETTINGS (ONLY CHANGED PART) */
+#settings {
+  display:none;
+  padding:20px;
+}
+
+a {
+  text-decoration:none;
+}
+
+.consult {
+  background:#10b981;
+  color:white;
+}
+
+.consult:hover {
+  background:#059669;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <h2>PMS</h2>
+  <a href="/dashboard">Dashboard</a>
+
+  <!-- Patients: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/records">Patients</a>
+  <% } %>
+
+  <!-- Visits: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/visits" class="active">Visits</a>
+  <% } %>
+
+  <!-- Doctors list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/doctors">Doctors</a>
+  <% } %>
+
+  <!-- Queue: doctor only -->
+  <% if (role === 'doctor') { %>
+    <a href="/queue">Queue</a>
+  <% } %>
+
+  <!-- Nurses list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/nurses">Nurses</a>
+  <% } %>
+
+  <!-- Admitted: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/admitted">Admitted</a>
+  <% } %>
+
+  <!-- Lab: lab only -->
+  <% if (role === 'lab') { %>
+    <a href="/lab">Labs</a>
+  <% } %>
+
+  <a href="/settings">Settings</a>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<div class="topbar">
+  <h2 id="title">Visits</h2>
+  <span style="font-size:14px;color:#64748b;font-weight:500;"><%= name %></span>
+</div>
+
+<!-- VISITS -->
+<div id="visitsSection">
+<div class="top-actions">
+
+  <input 
+    type="text" 
+    placeholder="Search patient..." 
+    class="search"
+  >
+
+  <select class="filter" id="statusFilter">
+    <option value="all">All</option>
+    <option value="waiting">Waiting</option>
+    <option value="in-progress">In Progress</option>
+    <option value="completed">Completed</option>
+  </select>
+
+</div>
+
+<table>
+
+  <tr>
+    <th>Patient</th>
+    <th>Doctor</th>
+    <th>Date</th>
+    <th>Status</th>
+    <th>Actions</th>
+  </tr>
+
+  <% if (visits.length > 0) { %>
+
+    <% visits.forEach(visit => { %>
+
+      <tr class="visit-row">
+
+        <!-- Patient -->
+        <td>
+          <%= visit.patient ? visit.patient.name : "Unknown" %>
+        </td>
+
+        <!-- Doctor -->
+        <td>
+          <%= visit.doctor ? visit.doctor.name : "Not Assigned" %>
+        </td>
+
+        <!-- Date -->
+        <td>
+          <%= new Date(visit.createdAt).toDateString() %>
+        </td>
+
+        <!-- Status -->
+        <td class="visit-status">
+          <span class="status 
+            <%= visit.status === 'waiting' ? 'waiting' : '' %>
+            <%= visit.status === 'in-progress' ? 'progress' : '' %>
+            <%= visit.status === 'completed' ? 'done' : '' %>
+          ">
+            <%= visit.status %>
+          </span>
+        </td>
+
+        <!-- Actions -->
+        <td>
+
+          <!-- Patient Profile — visible to all who can reach this page -->
+          <a href="/patient/<%= visit.patient._id %>" class="btn view">
+            View
+          </a>
+
+          <!-- Consult button — doctors only -->
+          <% if (role === 'doctor') { %>
+            <a href="/visit/<%= visit._id %>/doctor" class="btn consult">
+              Consult
+            </a>
+          <% } %>
+
+        </td>
+
+      </tr>
+
+    <% }) %>
+
+  <% } else { %>
+
+    <tr>
+      <td colspan="5" style="text-align:center;">
+        No visits found
+      </td>
+    </tr>
+
+  <% } %>
+
+</table>
+
+</div>
+
+</div>
+
+<a href="#" class="add-btn">
+  <i class="bi bi-plus-lg"></i>
+</a>
+
+<script>
+function showSettings() {
+  document.getElementById("visitsSection").style.display = "none";
+  document.getElementById("settings").style.display = "block";
+  document.getElementById("title").innerText = "Settings";
+}
+
+function showDashboard() {
+  document.getElementById("visitsSection").style.display = "block";
+  document.getElementById("settings").style.display = "none";
+  document.getElementById("title").innerText = "Visits";
+}
+
+const searchInput = document.querySelector(".search");
+const rows = document.querySelectorAll("table tbody tr");
+const table = document.querySelector("table");
+
+searchInput.addEventListener("keyup", function () {
+
+  const value = this.value.toLowerCase().trim();
+  let visibleCount = 0;
+
+  rows.forEach(row => {
+    const text = row.innerText.toLowerCase().replace(/\s+/g, " ");
+    if (text.includes(value)) {
+      row.style.display = "";
+      visibleCount++;
+    } else {
+      row.style.display = "none";
+    }
+  });
+
+  const oldMessage = document.getElementById("noResults");
+  if (oldMessage) { oldMessage.remove(); }
+
+  if (visibleCount === 0) {
+    const tr = document.createElement("tr");
+    tr.id = "noResults";
+    tr.innerHTML = `
+      <td colspan="5" style="text-align:center;padding:30px;color:#64748b;">
+        <i class="bi bi-search" style="font-size:25px;"></i>
+        <p style="margin-top:10px;">No visits found</p>
+      </td>
+    `;
+    table.appendChild(tr);
+  }
+
+});
+
+const filter = document.getElementById("statusFilter");
+
+filter.addEventListener("change", function () {
+  const selected = this.value.toLowerCase();
+  const rows = document.querySelectorAll(".visit-row");
+
+  rows.forEach(row => {
+    const status = row.querySelector(".visit-status").innerText.trim().toLowerCase();
+    if (selected === "all") {
+      row.style.display = "";
+    } else if (status === selected) {
+      row.style.display = "";
+    } else {
+      row.style.display = "none";
+    }
+  });
+});
+</script>
+
+</body>
+</html>

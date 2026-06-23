@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queue</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+*{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+
+body{ display:flex; background:#f1f5f9; min-height:100vh; color:#0f172a; }
+
+.sidebar{ width:220px; background:#1e293b; color:white; padding:20px; flex-shrink:0; }
+.sidebar h2{ margin-bottom:20px; font-size:18px; font-weight:600; }
+.sidebar a{ display:block; color:white; text-decoration:none; padding:12px; border-radius:8px; margin-bottom:8px; font-size:14px; transition:0.2s; }
+.sidebar a:hover, .sidebar .active{ background:#3b82f6; }
+
+.main{ flex:1; padding:30px; overflow-y:auto; }
+
+.topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; }
+.topbar h2{ font-size:20px; font-weight:600; color:#0f172a; }
+.topbar span{ font-size:14px; color:#64748b; font-weight:500; }
+
+.shift-warning{
+  display:flex; align-items:center; gap:14px;
+  background:linear-gradient(135deg,#fff7ed,#ffedd5);
+  border-left:4px solid #f97316; color:#9a3412;
+  padding:16px 18px; border-radius:12px;
+  margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+.shift-warning i{ font-size:20px; color:#ea580c; }
+.shift-warning strong{ display:block; margin-bottom:3px; font-size:14px; font-weight:600; }
+.shift-warning small{ color:#7c2d12; font-size:13px; }
+
+/* TWO COLUMN GRID */
+.queue-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+
+.queue-card{
+  background:white; border-radius:14px; padding:24px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+
+.queue-title{
+  margin-bottom:18px; font-weight:600; font-size:15px; color:#0f172a;
+  display:flex; justify-content:space-between; align-items:center;
+}
+
+.search-box{ display:none; margin-bottom:16px; }
+.search-box input{
+  width:100%; padding:11px 13px;
+  border:1.5px solid #e2e8f0; border-radius:8px;
+  outline:none; font-size:13px; transition:0.2s;
+}
+.search-box input:focus{ border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+
+.queue-item{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:16px; border-radius:10px; margin-bottom:12px;
+  background:#f8fafc; border:1px solid #f1f5f9; transition:0.2s;
+}
+.queue-item:hover{ background:#eff6ff; border-color:#dbeafe; }
+
+.patient-name{ font-weight:600; font-size:14px; color:#0f172a; margin-bottom:4px; }
+.patient-meta{ font-size:12px; color:#64748b; line-height:1.5; }
+
+/* BADGES */
+.badge{ padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.badge-waiting      { background:#fef3c7; color:#92400e; }
+.badge-lab          { background:#e0f2fe; color:#075985; }
+.badge-external     { background:#f3e8ff; color:#6d28d9; }
+.badge-ready        { background:#dcfce7; color:#166534; }
+
+/* NOTIFICATION DOT */
+.notif-dot{
+  width:8px; height:8px; border-radius:50%; background:#22c55e;
+  display:inline-block; margin-left:6px; animation:pulse 1.5s infinite;
+}
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* BUTTONS */
+.btn{ padding:8px 14px; border:none; border-radius:8px; font-size:12px; font-weight:500; cursor:pointer; text-decoration:none; display:inline-block; transition:0.2s; }
+.btn-start  { background:#2563eb; color:white; }
+.btn-start:hover  { background:#1d4ed8; }
+.btn-review { background:#16a34a; color:white; }
+.btn-review:hover { background:#15803d; }
+
+/* DIVIDER between sections in lab column */
+.lab-divider{ border-top:1px solid #f1f5f9; margin:16px 0; padding-top:16px; }
+.lab-section-label{ font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+
+.empty{ text-align:center; padding:30px 20px; color:#94a3b8; font-size:13px; }
+
+@media(max-width:900px){
+  .queue-grid{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>PMS</h2>
+  <a href="/dashboard">Dashboard</a>
+
+  <!-- Patients: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/records">Patients</a>
+  <% } %>
+
+  <!-- Visits: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/visits">Visits</a>
+  <% } %>
+
+  <!-- Doctors list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/doctors">Doctors</a>
+  <% } %>
+
+  <!-- Queue: doctor only -->
+  <% if (role === 'doctor') { %>
+    <a href="/queue" class="active">Queue</a>
+  <% } %>
+
+  <!-- Nurses list: admin only -->
+  <% if (role === 'admin') { %>
+    <a href="/nurses">Nurses</a>
+  <% } %>
+
+  <!-- Admitted: nurse, doctor, admin -->
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/admitted">Admitted</a>
+  <% } %>
+
+  <!-- Lab: lab only -->
+  <% if (role === 'lab') { %>
+    <a href="/lab">Labs</a>
+  <% } %>
+
+  <a href="/settings">Settings</a>
+</div>
+
+<div class="main">
+
+  <% if (shiftWarning) { %>
+  <div class="shift-warning">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <div>
+      <strong>Shift Ending Soon</strong>
+      <small><%= shiftWarning %></small>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="topbar">
+    <h2>Patient Queue</h2>
+    <span><%= name %></span>
+  </div>
+
+  <div class="queue-grid">
+
+    <!-- COLUMN 1: WAITING -->
+    <div class="queue-card">
+      <div class="queue-title">
+        <span>🟡 Waiting Patients</span>
+        <i class="bi bi-search" style="cursor:pointer;font-size:16px;color:#94a3b8;" id="waitingSearchIcon"></i>
+      </div>
+      <div class="search-box" id="waiting-search-box">
+        <input type="text" placeholder="Search patient..." id="waiting-search">
+      </div>
+
+      <% if (waiting.length === 0) { %>
+        <div class="empty">No patients waiting</div>
+      <% } %>
+
+      <% waiting.forEach((visit, index) => { %>
+      <div class="queue-item waiting-item">
+        <div>
+          <div class="patient-name"><%= index + 1 %>. <%= visit.patient.name %></div>
+          <div class="patient-meta">
+            ID: <%= visit.patient.patientID %> •
+            <%= new Date(visit.createdAt).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) %>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <span class="badge badge-waiting">Waiting</span><br><br>
+          <a href="/visit/<%= visit._id %>/doctor" class="btn btn-start">Start</a>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+
+   <!-- COLUMN 2: RESULTS BACK ONLY -->
+<div class="queue-card">
+  <div class="queue-title">
+    <span>
+      🧪 Lab Results
+      <% if (labComplete.length > 0) { %>
+        <span class="notif-dot"></span>
+      <% } %>
+    </span>
+    <i class="bi bi-search" style="cursor:pointer;font-size:16px;color:#94a3b8;" id="labSearchIcon"></i>
+  </div>
+  <div class="search-box" id="lab-search-box">
+    <input type="text" placeholder="Search results..." id="lab-search">
+  </div>
+
+  <% if (labComplete.length === 0) { %>
+    <div class="empty">No results back yet</div>
+  <% } %>
+
+  <% labComplete.forEach(visit => { %>
+  <div class="queue-item complete-item">
+    <div>
+      <div class="patient-name"><%= visit.patient.name %></div>
+      <div class="patient-meta">
+        Tests: <%= visit.tests || '—' %>
+        <% if (visit.labType === 'external') { %> • External<% } %>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <span class="badge badge-ready">Ready</span><br><br>
+      <a href="/visit/<%= visit._id %>/doctor" class="btn btn-review">Review</a>
+    </div>
+  </div>
+  <% }) %>
+
+</div>
+
+  </div>
+</div>
+
+<script>
+// Search toggles
+document.getElementById('waitingSearchIcon').addEventListener('click', function() {
+  var box = document.getElementById('waiting-search-box');
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+  if (box.style.display === 'block') box.querySelector('input').focus();
+});
+
+document.getElementById('labSearchIcon').addEventListener('click', function() {
+  var box = document.getElementById('lab-search-box');
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+  if (box.style.display === 'block') box.querySelector('input').focus();
+});
+
+// Search filter
+document.getElementById('waiting-search').addEventListener('keyup', function() {
+  var val = this.value.toLowerCase();
+  document.querySelectorAll('.waiting-item').forEach(function(item) {
+    item.style.display = item.innerText.toLowerCase().includes(val) ? 'flex' : 'none';
+  });
+});
+
+document.getElementById('lab-search').addEventListener('keyup', function() {
+  var val = this.value.toLowerCase();
+  document.querySelectorAll('.lab-item, .complete-item').forEach(function(item) {
+    item.style.display = item.innerText.toLowerCase().includes(val) ? 'flex' : 'none';
+  });
+});
+</script>
+
+</body>
+</html>

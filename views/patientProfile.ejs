@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Patient Profile - <%= patient.name %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    body { background: #f4f6f9; }
+    .header-bar { background: #1e293b; color: white; }
+    .profile-card { background:#fff; border-radius:10px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:20px; }
+    .section-title { font-size:16px; margin-bottom:15px; color:#333; border-bottom:1px solid #eee; padding-bottom:5px; }
+    .meta { font-size:12px; color:#777; margin-top:10px; text-align:right; }
+    .alert-box { padding:12px 16px; border-radius:8px; margin-bottom:15px; font-size:14px; }
+    .alert-box.success { background:#dcfce7; color:#166534; }
+    .alert-box.error   { background:#fee2e2; color:#991b1b; }
+
+    /* EXTERNAL LAB BANNER */
+    .external-lab-banner {
+      background: linear-gradient(135deg, #fef9c3, #fef3c7);
+      border-left: 4px solid #f59e0b;
+      border-radius: 8px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+    .external-lab-banner h6 { font-size:14px; font-weight:700; color:#92400e; margin-bottom:4px; }
+    .external-lab-banner p  { font-size:13px; color:#78350f; margin:0; }
+
+    /* RESUME MODAL */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:white; border-radius:12px; width:100%; max-width:500px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.2); margin:20px; }
+    .modal-hdr { background:#1e293b; color:white; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; }
+    .modal-hdr h5 { margin:0; font-size:16px; font-weight:600; }
+    .modal-hdr button { background:transparent; border:none; color:#94a3b8; font-size:22px; cursor:pointer; }
+    .modal-hdr button:hover { color:white; }
+    .modal-bdy { padding:22px; }
+    .modal-ftr { padding:14px 22px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end; gap:10px; }
+
+    /* ADMISSION CARD */
+    .admission-card { border:1px solid #e5e7eb; border-radius:14px; background:white; overflow:hidden; margin-bottom:18px; }
+    .admission-top { padding:18px 20px; display:flex; justify-content:space-between; gap:20px; align-items:flex-start; }
+    .admission-meta { font-size:13px; color:#64748b; margin-top:4px; }
+    .expand-btn { border:none; background:transparent; color:#2563eb; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .expand-content { display:none; padding:0 20px 18px; }
+    .mini-title { font-size:12px; font-weight:700; color:#0f172a; margin:14px 0 8px; text-transform:uppercase; letter-spacing:0.4px; }
+    .clean-item { background:#f8fafc; border:1px solid #f1f5f9; border-radius:10px; padding:12px; margin-bottom:8px; }
+    .clean-meta { font-size:12px; color:#94a3b8; margin-top:5px; }
+    .med-stopped { opacity:0.5; text-decoration:line-through; }
+    .stopped-note { font-size:11px; color:#dc2626; margin-top:3px; }
+
+    /* ADMIN RESTRICTION NOTICE */
+    .restricted-notice {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 14px 18px;
+      color: #94a3b8;
+      font-size: 13px;
+      text-align: center;
+    }
+    .restricted-notice i { font-size: 18px; display: block; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="header-bar text-center py-4">
+  <h2><i class="bi bi-person-lines-fill me-2"></i>Patient Profile</h2>
+</div>
+
+<% if (success && success.length > 0) { %>
+  <div class="container mt-3"><div class="alert-box success"><%= success %></div></div>
+<% } %>
+<% if (error && error.length > 0) { %>
+  <div class="container mt-3"><div class="alert-box error"><%= error %></div></div>
+<% } %>
+
+<div class="mt-4" style="margin-left:20px;">
+  <a href="/records" class="btn btn-outline-primary"><i class="bi bi-arrow-left-circle me-1"></i></a>
+</div>
+
+<!-- Add Visit button — nurses and doctors only -->
+<% if (role !== 'admin') { %>
+<div class="text-end mb-3 container">
+  <a href="/visit/new/<%= patient._id %>" class="btn btn-success">
+    <i class="bi bi-plus-circle me-1"></i> Add Visit
+  </a>
+</div>
+<% } %>
+
+<div class="container py-2">
+
+  <!-- ══════════════════════════════════════════
+       BASIC INFO — all roles see this
+  ══════════════════════════════════════════ -->
+  <div class="profile-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="section-title mb-0">Basic Information</div>
+      <button
+        class="btn btn-sm btn-outline-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#editPatientModal">
+        <i class="bi bi-pencil-square me-1"></i> Edit
+      </button>
+    </div>
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>Name:</strong> <%= patient.name %></p>
+        <p><strong>Patient ID:</strong> #<%= patient.patientID %></p>
+        <p><strong>Date of Birth:</strong> <%= new Date(patient.DOB).toDateString() %></p>
+        <p><strong>Gender:</strong> <%= patient.gender %></p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Phone:</strong> <%= patient.number %></p>
+        <p><strong>Email:</strong> <%= patient.email || "N/A" %></p>
+        <p><strong>Address:</strong> <%= patient.address %></p>
+        <p><strong>Emergency Contact:</strong> <%= patient.emergencyContact %></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       MEDICAL INFO — all roles (blood type &
+       allergies matter in emergencies for admin)
+  ══════════════════════════════════════════ -->
+  <div class="profile-card">
+    <div class="section-title">Medical Information</div>
+    <p><strong>Blood Type:</strong> <%= patient.bloodType || "N/A" %></p>
+    <p><strong>Allergies:</strong> <%= patient.allergies || "None" %></p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CLINICAL HISTORY — nurses & doctors only
+  ══════════════════════════════════════════ -->
+  <div class="profile-card">
+    <div class="section-title">
+      <i class="bi bi-journal-medical me-1"></i> Clinical History
+    </div>
+
+    <% if (role === 'admin') { %>
+      <div class="restricted-notice">
+        <i class="bi bi-lock"></i>
+        Clinical history is restricted to clinical staff only.
+      </div>
+
+    <% } else { %>
+
+      <% if (visits.length > 0) { %>
+        <% const latest = visits[0]; %>
+
+        <!-- EXTERNAL LAB PENDING BANNER -->
+        <% if (latest.status === "lab" && latest.labType === "external" && latest.externalLabStatus === "pending") { %>
+          <div class="external-lab-banner">
+            <h6><i class="bi bi-send me-1"></i> External Lab Pending</h6>
+            <p>
+              Patient sent to <strong><%= latest.externalLabName || 'external lab' %></strong>
+              on <%= new Date(latest.externalLabSentAt).toLocaleDateString('en-GB') %>.
+              Tests: <strong><%= latest.tests || '—' %></strong>
+            </p>
+            <p class="mt-2" style="font-size:12px;color:#92400e;">
+              When patient returns with results, click Resume below to upload them.
+            </p>
+            <form method="POST" action="/visit/<%= latest._id %>/resume-external" style="display:inline;">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn btn-dark btn-sm mt-2">
+                <i class="bi bi-arrow-repeat me-1"></i> Resume — Results Returned
+              </button>
+            </form>
+          </div>
+        <% } %>
+
+        <div class="mb-3">
+          <span class="badge bg-success">
+            Latest Visit — <%= new Date(latest.createdAt).toLocaleString() %>
+          </span>
+          <% if (latest.labType === 'external') { %>
+            <span class="badge bg-purple ms-1" style="background:#ede9fe;color:#6d28d9;">External Lab</span>
+          <% } %>
+        </div>
+
+        <% if (latest.vitals) { %>
+          <div class="row mb-3">
+            <div class="col-md-4"><p><strong>Temp:</strong> <%= latest.vitals.temperature %> °C</p></div>
+            <div class="col-md-4"><p><strong>BP:</strong> <%= latest.vitals.bloodPressure %></p></div>
+            <div class="col-md-4"><p><strong>Heart Rate:</strong> <%= latest.vitals.heartRate %> bpm</p></div>
+            <div class="col-md-4"><p><strong>Resp:</strong> <%= latest.vitals.respiratoryRate %></p></div>
+            <div class="col-md-4"><p><strong>Weight:</strong> <%= latest.vitals.weight %> kg</p></div>
+            <div class="col-md-4"><p><strong>Height:</strong> <%= latest.vitals.height %> cm</p></div>
+          </div>
+        <% } %>
+
+        <div class="mb-3">
+          <p><strong>Complaint:</strong> <%= latest.complaint || "—" %></p>
+          <p><strong>Observation:</strong> <%= latest.observation || "—" %></p>
+          <p><strong>Diagnosis:</strong> <%= latest.diagnosis || "—" %></p>
+          <p><strong>Prescription:</strong> <%= latest.prescription || "—" %></p>
+          <p><strong>Notes:</strong> <%= latest.notes || "—" %></p>
+        </div>
+
+        <% if (latest.tests) { %>
+          <div class="mb-2">
+            <strong>Tests Requested:</strong>
+            <span class="badge bg-warning text-dark"><%= latest.tests %></span>
+          </div>
+        <% } %>
+
+        <% if (latest.labResults) { %>
+          <div class="mb-2">
+            <strong>Lab Results:</strong>
+            <div class="border rounded p-2 mt-1 bg-light" style="white-space:pre-wrap;font-size:14px;">
+              <%= latest.labResults %>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (latest.labResult) { %>
+          <p>
+            <strong>Lab PDF:</strong>
+            <a href="/<%= latest.labResult %>" target="_blank" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-file-earmark-pdf me-1"></i> View PDF
+            </a>
+          </p>
+        <% } %>
+
+        <div class="meta">
+          Nurse: <strong><%= latest.nurse ? latest.nurse.name : "Unknown" %></strong><br>
+          Doctor: <strong><%= latest.doctor ? latest.doctor.name : "Not assigned" %></strong>
+        </div>
+
+        <!-- PREVIOUS VISITS -->
+        <% if (visits.length > 1) { %>
+          <div class="mt-4">
+            <button class="btn btn-outline-secondary btn-sm" id="toggleHistoryBtn">
+              View Previous Visits
+            </button>
+          </div>
+          <div id="historySection" style="display:none; margin-top:15px;">
+            <% visits.slice(1).forEach(v => { %>
+            <div class="border rounded p-3 mb-3 bg-light">
+              <div class="mb-2">
+                <span class="badge bg-secondary"><%= new Date(v.createdAt).toLocaleString() %></span>
+                <% if (v.labType === 'external') { %>
+                  <span class="badge ms-1" style="background:#ede9fe;color:#6d28d9;">External Lab</span>
+                <% } %>
+              </div>
+              <% if (v.vitals) { %>
+                <div class="row mb-2">
+                  <div class="col-md-4"><p>Temp: <%= v.vitals.temperature %></p></div>
+                  <div class="col-md-4"><p>BP: <%= v.vitals.bloodPressure %></p></div>
+                  <div class="col-md-4"><p>HR: <%= v.vitals.heartRate %></p></div>
+                  <div class="col-md-4"><p>Weight: <%= v.vitals.weight %></p></div>
+                </div>
+              <% } %>
+              <p><strong>Complaint:</strong> <%= v.complaint || "—" %></p>
+              <p><strong>Diagnosis:</strong> <%= v.diagnosis || "—" %></p>
+              <p><strong>Prescription:</strong> <%= v.prescription || "—" %></p>
+              <p><strong>Tests:</strong> <%= v.tests || "—" %></p>
+              <p><strong>Notes:</strong> <%= v.notes || "—" %></p>
+              <% if (v.labResults) { %>
+                <div class="mb-2">
+                  <strong>Lab Results:</strong>
+                  <div class="border rounded p-2 mt-1 bg-white" style="white-space:pre-wrap;font-size:13px;"><%= v.labResults %></div>
+                </div>
+              <% } %>
+              <% if (v.labResult) { %>
+                <p><a href="/<%= v.labResult %>" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></p>
+              <% } %>
+              <div class="meta">
+                Nurse: <strong><%= v.nurse ? v.nurse.name : "Unknown" %></strong><br>
+                Doctor: <strong><%= v.doctor ? v.doctor.name : "Not assigned" %></strong>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+        <% } %>
+
+      <% } else { %>
+        <p>No visits recorded yet</p>
+      <% } %>
+
+      <br>
+      <div class="section-title">System Info</div>
+      <p><strong>Created At:</strong> <%= new Date(patient.createdAt).toLocaleString() %></p>
+      <div class="meta">Added by: <strong><%= nurse ? nurse.name : "Unknown" %></strong></div>
+
+    <% } %> <!-- end role !== admin -->
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ADMISSION HISTORY
+       Admin: ward / dates / status only
+       Nurses & doctors: full details
+  ══════════════════════════════════════════ -->
+  <div class="profile-card">
+    <div class="section-title">
+      <i class="bi bi-hospital me-1"></i> Admission History
+      <span class="badge bg-secondary ms-2" style="font-size:12px;"><%= admissions.length %></span>
+    </div>
+
+    <% if (admissions.length === 0) { %>
+      <p class="text-muted mb-0">No admission history</p>
+
+    <% } else { %>
+      <% admissions.forEach(function(a, index) { %>
+      <div class="admission-card">
+
+        <div class="admission-top">
+          <div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <h6 class="fw-bold mb-0">
+                <%= a.ward || "No Ward" %><% if (a.bed) { %> • Bed <%= a.bed %><% } %>
+              </h6>
+              <% if (a.status === 'stable') { %><span class="badge bg-success">Stable</span>
+              <% } else if (a.status === 'critical') { %><span class="badge bg-danger">Critical</span>
+              <% } else if (a.status === 'observation') { %><span class="badge bg-warning text-dark">Observation</span>
+              <% } else if (a.status === 'discharged') { %><span class="badge bg-primary">Discharged</span>
+              <% } else if (a.status === 'chronic') { %><span class="badge" style="background:#ede9fe;color:#6d28d9;">Chronic</span>
+              <% } else if (a.status === 'deceased') { %><span class="badge bg-dark">Deceased</span>
+              <% } %>
+              <% if (a.isEmergency) { %><span class="badge bg-danger">Emergency</span><% } %>
+            </div>
+            <div class="admission-meta">
+              Admitted by <%= a.admittedBy ? a.admittedBy.name : "Unknown" %> •
+              <%= new Date(a.admittedAt).toLocaleString() %>
+            </div>
+            <% if (a.dischargedAt) { %>
+              <div class="admission-meta">
+                Discharged <%= new Date(a.dischargedAt).toLocaleString() %>
+                <% if (a.dischargedBy) { %> • <%= a.dischargedBy.name %><% } %>
+              </div>
+            <% } %>
+            <!-- Admission reason: admin sees this (administrative context), clinical notes hidden below -->
+            <div class="admission-meta mt-1"><strong>Reason:</strong> <%= a.admissionReason || "—" %></div>
+          </div>
+
+          <!-- Expand button: clinical staff only -->
+          <% if (role !== 'admin') { %>
+            <button class="expand-btn" id="expandBtn-<%= index %>">View Details</button>
+          <% } %>
+        </div>
+
+        <!-- Clinical details — hidden from admin -->
+        <% if (role !== 'admin') { %>
+        <div class="expand-content" id="expand-<%= index %>">
+
+          <!-- MEDICATIONS -->
+          <div class="mini-title">Medications (<%= a.medications.length %>)</div>
+          <% if (a.medications.length === 0) { %>
+            <p class="text-muted small">No medications recorded</p>
+          <% } else { %>
+            <% a.medications.forEach(function(m) { %>
+            <div class="clean-item">
+              <div class="<%= !m.active ? 'med-stopped' : '' %> fw-semibold"><%= m.name %></div>
+              <div class="small text-muted"><%= m.dosage %> • <%= m.frequency %></div>
+              <div class="clean-meta">Added by <%= m.addedBy ? m.addedBy.name : "Unknown" %></div>
+              <% if (!m.active) { %>
+                <div class="stopped-note">
+                  Stopped by <%= m.removedBy ? m.removedBy.name : "Unknown" %>
+                  <% if (m.removedAt) { %> • <%= new Date(m.removedAt).toLocaleDateString('en-GB') %><% } %>
+                </div>
+              <% } %>
+            </div>
+            <% }) %>
+          <% } %>
+
+          <!-- WARD ROUNDS -->
+          <div class="mini-title">Ward Rounds (<%= a.wardRounds.length %>)</div>
+          <% if (a.wardRounds.length === 0) { %>
+            <p class="text-muted small">No ward rounds recorded</p>
+          <% } else { %>
+            <% a.wardRounds.forEach(function(r) { %>
+            <div class="clean-item">
+              <div style="white-space:pre-wrap;font-size:14px;"><%= r.notes || "No notes" %></div>
+              <% if (r.vitals) { %>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                  <% if (r.vitals.temperature) { %><span class="badge bg-light text-dark border">Temp: <%= r.vitals.temperature %>°C</span><% } %>
+                  <% if (r.vitals.bloodPressure) { %><span class="badge bg-light text-dark border">BP: <%= r.vitals.bloodPressure %></span><% } %>
+                  <% if (r.vitals.heartRate) { %><span class="badge bg-light text-dark border">HR: <%= r.vitals.heartRate %></span><% } %>
+                  <% if (r.vitals.weight) { %><span class="badge bg-light text-dark border">Weight: <%= r.vitals.weight %> kg</span><% } %>
+                </div>
+              <% } %>
+              <div class="clean-meta">By <%= r.addedBy ? r.addedBy.name : "Unknown" %> • <%= new Date(r.addedAt).toLocaleString() %></div>
+            </div>
+            <% }) %>
+          <% } %>
+
+          <!-- LAB REQUESTS -->
+          <div class="mini-title">Lab Requests (<%= a.labRequests.length %>)</div>
+          <% if (a.labRequests.length === 0) { %>
+            <p class="text-muted small">No labs requested</p>
+          <% } else { %>
+            <% a.labRequests.forEach(function(lr) { %>
+            <div class="clean-item">
+              <div class="fw-semibold"><%= lr.tests || "Lab Request" %></div>
+              <% if (lr.status === 'lab') { %><span class="badge bg-warning text-dark mt-1">Pending</span>
+              <% } else if (lr.status === 'lab-complete') { %><span class="badge bg-success mt-1">Results Back</span><% } %>
+              <% if (lr.labResults) { %>
+                <div class="mt-2 small" style="white-space:pre-wrap;"><%= lr.labResults %></div>
+              <% } %>
+              <% if (lr.labResult) { %>
+                <a href="/<%= lr.labResult %>" target="_blank" class="btn btn-sm btn-outline-success mt-2">
+                  <i class="bi bi-file-earmark-pdf me-1"></i> View PDF
+                </a>
+              <% } %>
+            </div>
+            <% }) %>
+          <% } %>
+
+          <!-- DISCHARGE NOTES -->
+          <% if (a.dischargeNotes) { %>
+            <div class="mini-title">Discharge Notes</div>
+            <div class="clean-item"><%= a.dischargeNotes %></div>
+          <% } %>
+
+        </div>
+        <% } %> <!-- end role !== admin expand content -->
+
+      </div>
+      <% }) %>
+    <% } %>
+  </div>
+
+  <div class="text-center mt-4 mb-4">
+    <a href="/records" class="btn btn-outline-primary">
+      <i class="bi bi-arrow-left-circle me-1"></i> Back
+    </a>
+  </div>
+
+</div>
+
+
+<!-- RESUME EXTERNAL LAB MODAL (clinical staff only) -->
+<% if (role !== 'admin') { %>
+<div class="modal-overlay" id="resumeOverlay">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <h5><i class="bi bi-arrow-repeat me-2"></i>Upload External Lab Results</h5>
+      <button id="closeResumeBtn">✕</button>
+    </div>
+    <% if (visits.length > 0) { %>
+    <form method="POST" action="/visit/<%= visits[0]._id %>/resume-external">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="modal-bdy">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">
+            Lab: <%= visits[0].externalLabName || 'External Lab' %>
+          </label>
+          <div class="text-muted small mb-3">Tests: <%= visits[0].tests || '—' %></div>
+          <label class="form-label fw-semibold">Results & Findings</label>
+          <textarea name="labResults" class="form-control" rows="5" required
+            placeholder="Enter test results, values, and observations from the external lab..."></textarea>
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button type="button" class="btn btn-light" id="cancelResumeBtn">Cancel</button>
+        <button type="submit" class="btn btn-dark">
+          <i class="bi bi-check-lg me-1"></i> Submit Results
+        </button>
+      </div>
+    </form>
+    <% } %>
+  </div>
+</div>
+<% } %>
+
+
+<!-- EDIT PATIENT MODAL — all roles (demographics only) -->
+<div class="modal fade" id="editPatientModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="POST" action="/patient/<%= patient._id %>/edit">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-pencil-square me-2"></i>Edit Patient Information
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Full Name</label>
+              <input type="text" name="name" class="form-control" value="<%= patient.name %>" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phone Number</label>
+              <input type="text" name="number" class="form-control" value="<%= patient.number %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control" value="<%= patient.email || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Emergency Contact</label>
+              <input type="text" name="emergencyContact" class="form-control" value="<%= patient.emergencyContact || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Gender</label>
+              <select name="gender" class="form-select">
+                <option value="Male"   <%= patient.gender === "Male"   ? "selected" : "" %>>Male</option>
+                <option value="Female" <%= patient.gender === "Female" ? "selected" : "" %>>Female</option>
+                <option value="Other"  <%= patient.gender === "Other"  ? "selected" : "" %>>Other</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" name="DOB" class="form-control"
+                value="<%= patient.DOB ? new Date(patient.DOB).toISOString().split('T')[0] : '' %>">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Address</label>
+              <input type="text" name="address" class="form-control" value="<%= patient.address || '' %>">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save me-1"></i> Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// Toggle previous visits
+var toggleBtn = document.getElementById('toggleHistoryBtn');
+if (toggleBtn) {
+  toggleBtn.addEventListener('click', function() {
+    var section = document.getElementById('historySection');
+    if (section.style.display === 'none') {
+      section.style.display = 'block';
+      this.textContent = 'Hide Previous Visits';
+    } else {
+      section.style.display = 'none';
+      this.textContent = 'View Previous Visits';
+    }
+  });
+}
+
+// Toggle admission expand (clinical staff only — buttons not rendered for admin)
+<% if (role !== 'admin') { %>
+<% admissions.forEach(function(a, index) { %>
+  document.getElementById('expandBtn-<%= index %>').addEventListener('click', function() {
+    var content = document.getElementById('expand-<%= index %>');
+    if (content.style.display === 'none' || content.style.display === '') {
+      content.style.display = 'block';
+      this.textContent = 'Hide Details';
+    } else {
+      content.style.display = 'none';
+      this.textContent = 'View Details';
+    }
+  });
+<% }) %>
+<% } %>
+
+// Resume external lab modal (clinical staff only)
+<% if (role !== 'admin') { %>
+var resumeOverlay = document.getElementById('resumeOverlay');
+var openResumeBtn = document.getElementById('openResumeBtn');
+if (openResumeBtn) {
+  openResumeBtn.addEventListener('click', function() { resumeOverlay.classList.add('open'); });
+}
+document.getElementById('closeResumeBtn').addEventListener('click', function() { resumeOverlay.classList.remove('open'); });
+document.getElementById('cancelResumeBtn').addEventListener('click', function() { resumeOverlay.classList.remove('open'); });
+resumeOverlay.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+<% } %>
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
