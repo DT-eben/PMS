@@ -23,7 +23,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.log(err));
 
 const app = express();
-
+app.set("trust proxy", 1);
 app.set("views", __dirname + "/views");
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: false }));
