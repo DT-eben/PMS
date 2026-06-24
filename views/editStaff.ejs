@@ -35,6 +35,25 @@ input:focus,select:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,2
 .btn-cancel:hover{background:#f8fafc;color:#1e293b;}
 .btn-save{padding:10px 22px;border-radius:8px;background:#1e293b;border:none;color:white;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:0.2s;}
 .btn-save:hover{background:#334155;}
+/* ===== RESPONSIVE (MOBILE) ===== */
+@media (max-width: 768px){
+  body{flex-direction:column;min-height:100vh;}
+
+  .sidebar{width:100%;padding:14px;display:flex;align-items:center;overflow-x:auto;}
+  .sidebar h2{display:none;}
+  .sidebar a{display:inline-flex;white-space:nowrap;margin-bottom:0;margin-right:8px;padding:10px 14px;}
+
+  .main{padding:18px;}
+
+  .topbar{flex-direction:row;} /* back-btn stays top-left, fine as-is */
+
+  .form-card{padding:18px;max-width:100%;}
+
+  .form-grid{grid-template-columns:1fr;gap:14px;}
+
+  .btn-row{flex-direction:column-reverse;gap:10px;}
+  .btn-row a,.btn-row button{width:100%;justify-content:center;}
+}
 </style>
 </head>
 <body>

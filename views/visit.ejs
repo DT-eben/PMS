@@ -185,6 +185,36 @@ a {
 .consult:hover {
   background:#059669;
 }
+/* ===== RESPONSIVE (MOBILE) ===== */
+@media (max-width: 768px){
+  body{flex-direction:column;height:auto;min-height:100vh;}
+
+  .sidebar{width:100%;padding:14px;display:flex;align-items:center;overflow-x:auto;}
+  .sidebar h2{display:none;}
+  .sidebar a{display:inline-flex;white-space:nowrap;margin-bottom:0;margin-right:8px;padding:10px 14px;}
+
+  .main{padding:14px;}
+
+  .topbar{flex-direction:column;align-items:flex-start;gap:8px;}
+
+  .cards{grid-template-columns:1fr 1fr;gap:12px;}
+
+  .top-actions{flex-direction:column;align-items:stretch;gap:10px;}
+  .search,.filter{width:100%;}
+
+  /* Table -> horizontal scroll instead of squished columns */
+  #visitsSection{padding:14px;overflow-x:auto;}
+  table{min-width:600px;} /* forces scroll instead of crushing columns */
+
+  .list-item{flex-direction:column;align-items:flex-start;gap:4px;}
+
+  .add-btn{width:50px;height:50px;bottom:18px;right:18px;font-size:18px;}
+}
+
+@media (max-width: 480px){
+  .cards{grid-template-columns:1fr;}
+  th,td{padding:9px;font-size:13px;}
+}
 </style>
 </head>
 

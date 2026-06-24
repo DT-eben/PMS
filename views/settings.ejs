@@ -85,6 +85,40 @@ body{display:flex;background:#f1f5f9;min-height:100vh;}
 .danger-card{background:white;border-radius:14px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,0.05);border-left:4px solid #ef4444;}
 .danger-card h3{font-size:14px;font-weight:600;color:#991b1b;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
 .danger-card p.sub{font-size:13px;color:#94a3b8;margin-bottom:18px;}
+
+
+/* ===== RESPONSIVE (MOBILE) ===== */
+@media (max-width: 768px){
+  body{flex-direction:column;}
+
+  .sidebar{width:100%;padding:14px;display:flex;align-items:center;overflow-x:auto;}
+  .sidebar h2{display:none;} /* hide logo text to save space, or keep if you want */
+  .sidebar a{display:inline-flex;white-space:nowrap;margin-bottom:0;margin-right:8px;padding:10px 14px;}
+
+  .main{padding:16px;}
+
+  .topbar{flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:20px;}
+  .topbar h2{font-size:18px;}
+
+  .settings-grid{grid-template-columns:1fr;gap:14px;}
+
+  .section-card,.danger-card{padding:18px;}
+
+  .profile-row{flex-wrap:wrap;}
+  .avatar{width:50px;height:50px;font-size:18px;}
+
+  .stat-row{gap:8px;}
+  .stat-pill{padding:8px 12px;font-size:12px;}
+
+  .form-two{grid-template-columns:1fr;gap:14px;}
+
+  .info-row{flex-direction:column;align-items:flex-start;gap:2px;padding:9px 0;}
+}
+
+@media (max-width: 420px){
+  .sidebar a{padding:8px 10px;font-size:13px;}
+  .topbar span{font-size:13px;}
+}
 </style>
 </head>
 <body>
