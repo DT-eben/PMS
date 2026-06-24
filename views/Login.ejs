@@ -82,16 +82,16 @@ body {
   <!-- FLASH MESSAGES -->
 <div style="position:fixed; top:20px; left:50%; transform:translateX(-50%); width:400px; z-index:9999;">
 
-  <% if (error && error.length > 0) { %>
+  <% if (error) { %>
     <div class="alert alert-danger alert-dismissible fade show">
-      <%= error[0] %>
+      <%= error %>
       <button class="btn-close" data-bs-dismiss="alert"></button>
     </div>
   <% } %>
 
-  <% if (success && success.length > 0) { %>
+  <% if (success) { %>
     <div class="alert alert-success alert-dismissible fade show">
-      <%= success[0] %>
+      <%= success %>
       <button class="btn-close" data-bs-dismiss="alert"></button>
     </div>
   <% } %>
