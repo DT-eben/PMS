@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Receipt - <%= visit.billing.receiptNumber %></title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Courier New', monospace; }
+body { background:#f1f5f9; padding:30px; color:#0f172a; }
+
+.receipt {
+  max-width:420px;
+  margin:0 auto;
+  background:white;
+  padding:30px;
+  border-radius:8px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);
+}
+
+.receipt-header { text-align:center; margin-bottom:20px; border-bottom:2px dashed #cbd5e1; padding-bottom:16px; }
+.receipt-header h2 { font-size:18px; margin-bottom:4px; }
+.receipt-header p { font-size:12px; color:#64748b; }
+
+.receipt-meta { font-size:12px; margin-bottom:16px; }
+.receipt-meta div { display:flex; justify-content:space-between; padding:3px 0; }
+.receipt-meta .label { color:#64748b; }
+
+.receipt-items { border-top:1px dashed #cbd5e1; border-bottom:1px dashed #cbd5e1; padding:12px 0; margin-bottom:14px; }
+.receipt-item { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; }
+.receipt-item .item-name { flex:1; }
+
+.receipt-total { display:flex; justify-content:space-between; font-size:16px; font-weight:bold; padding:8px 0; }
+
+.receipt-payment { font-size:12px; margin-top:14px; padding-top:12px; border-top:1px dashed #cbd5e1; }
+.receipt-payment div { display:flex; justify-content:space-between; padding:3px 0; }
+.receipt-payment .label { color:#64748b; }
+
+.receipt-footer { text-align:center; margin-top:20px; font-size:11px; color:#94a3b8; }
+
+.print-bar { max-width:420px; margin:0 auto 16px; text-align:right; }
+.print-bar button {
+  padding:9px 18px; background:#1e293b; color:white; border:none;
+  border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif;
+}
+
+@media print {
+  body { background:white; padding:0; }
+  .print-bar { display:none; }
+  .receipt { box-shadow:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="print-bar">
+  <button onclick="window.print()">Print Receipt</button>
+</div>
+
+<div class="receipt">
+  <div class="receipt-header">
+    <h2>PMS Hospital</h2>
+    <p>Payment Receipt</p>
+  </div>
+
+  <div class="receipt-meta">
+    <div><span class="label">Receipt No.</span><span><%= visit.billing.receiptNumber %></span></div>
+    <div><span class="label">Date</span><span><%= new Date(visit.billing.paidAt).toLocaleDateString('en-GB') %></span></div>
+    <div><span class="label">Time</span><span><%= new Date(visit.billing.paidAt).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) %></span></div>
+    <div><span class="label">Patient</span><span><%= patient.name %></span></div>
+    <div><span class="label">Patient ID</span><span><%= patient.patientID %></span></div>
+    <div><span class="label">Doctor</span><span><%= doctor ? doctor.name : '—' %></span></div>
+    <div><span class="label">Cashier</span><span><%= printedBy %></span></div>
+  </div>
+
+  <div class="receipt-items">
+    <% (visit.billing.charges || []).forEach(function(charge) { %>
+    <div class="receipt-item">
+      <span class="item-name"><%= charge.label %></span>
+      <span>GHS <%= charge.amount.toFixed(2) %></span>
+    </div>
+    <% }) %>
+  </div>
+
+  <div class="receipt-total">
+    <span>TOTAL</span>
+    <span>GHS <%= visit.billing.totalAmount.toFixed(2) %></span>
+  </div>
+
+  <div class="receipt-payment">
+    <div><span class="label">Payment Method</span><span><%= visit.billing.paymentMethod %></span></div>
+    <% if (visit.billing.paymentReference) { %>
+    <div><span class="label">Reference</span><span><%= visit.billing.paymentReference %></span></div>
+    <% } %>
+    <div><span class="label">Amount Received</span><span>GHS <%= visit.billing.amountReceived.toFixed(2) %></span></div>
+  </div>
+
+  <div class="receipt-footer">
+    <p>Thank you. Please keep this receipt for your records.</p>
+    <p>Printed <%= printedAt.toLocaleString('en-GB') %></p>
+  </div>
+</div>
+
+</body>
+</html>

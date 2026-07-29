@@ -205,7 +205,26 @@
           <p><strong>Complaint:</strong> <%= latest.complaint || "—" %></p>
           <p><strong>Observation:</strong> <%= latest.observation || "—" %></p>
           <p><strong>Diagnosis:</strong> <%= latest.diagnosis || "—" %></p>
-          <p><strong>Prescription:</strong> <%= latest.prescription || "—" %></p>
+          <p><strong>Prescription:</strong></p>
+
+<% if (latest.prescriptions?.length) { %>
+
+    <% latest.prescriptions.forEach(drug => { %>
+
+        <div>
+            <%= drug.drugName %>
+            (<%= drug.dosage %>) —
+            <%= drug.frequency %> for
+            <%= drug.duration %>
+        </div>
+
+    <% }) %>
+
+<% } else { %>
+
+    —
+
+<% } %>
           <p><strong>Notes:</strong> <%= latest.notes || "—" %></p>
         </div>
 

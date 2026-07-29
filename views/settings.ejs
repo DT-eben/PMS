@@ -162,7 +162,12 @@ body{display:flex;background:#f1f5f9;min-height:100vh;}
   <% if (role === 'lab') { %>
     <a href="/lab">Labs</a>
   <% } %>
-
+  <% if (role === 'pharmacist') { %>
+    <a href="/pharmacy"> Pharmacy</a>
+  <% } %>
+  <% if (role === 'pharmacist' || role === 'admin') { %>
+    <a href="/inventory">Inventory</a>
+  <% } %>
   <a href="/settings" class="active">Settings</a>
 </div>
 
@@ -299,6 +304,8 @@ body{display:flex;background:#f1f5f9;min-height:100vh;}
                 <option value="doctor">Doctor</option>
                 <option value="nurse">Nurse</option>
                 <option value="lab">Lab</option>
+                <option value="pharmacist">Pharmacist</option>
+                <option value="cashier">Cashier</option>
                 <option value="admin">Admin</option>
               </select>
             </div>

@@ -360,7 +360,27 @@ body{
     <a href="/lab">Labs</a>
   <% } %>
 
-  <a href="/settings">Settings</a>
+  <!-- Pharmacy: pharmacy only -->
+  <% if (role === 'pharmacist') { %>
+    <a href="/pharmacy"> Pharmacy</a>
+  <% } %>
+
+   <!-- inventroy: pharmacy and admin only -->
+  <% if (role === 'pharmacist') { %>
+    <a href="/inventory"> Inventory</a>
+  <% } %>
+     <!-- inventroy: pharmacy and admin only -->
+  <% if (role === 'cashier') { %>
+    <a href="/billing/queue">Billing Queue</a>
+  <% } %>
+    <% if (role === 'cashier') { %>
+   <a href="/billing/pricebook">Bill Book</a>
+  <% } %>
+   
+   
+
+
+  <a href="/settings" >Settings</a>
 </div>
 
 <!-- MAIN -->

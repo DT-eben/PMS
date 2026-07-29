@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMS - Billing Queue</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+*{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+body{ display:flex; background:#f1f5f9; min-height:100vh; color:#0f172a; }
+
+.sidebar{ width:220px; background:#1e293b; color:white; padding:20px; flex-shrink:0; }
+.sidebar h2{ margin-bottom:20px; font-size:18px; font-weight:600; }
+.sidebar a{ display:block; color:white; text-decoration:none; padding:12px; border-radius:8px; margin-bottom:8px; font-size:14px; }
+.sidebar a:hover, .sidebar .active{ background:#3b82f6; }
+
+.main{ flex:1; padding:30px; overflow-y:auto; }
+.topbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; }
+.topbar h2{ font-size:20px; font-weight:600; }
+.topbar span{ font-size:14px; color:#64748b; font-weight:500; }
+
+.flash{ padding:12px 18px; border-radius:10px; margin-bottom:20px; font-size:14px; font-weight:500; display:flex; align-items:center; gap:10px; }
+.flash-success{ background:#dcfce7; color:#166534; border-left:4px solid #22c55e; }
+.flash-error{ background:#fee2e2; color:#991b1b; border-left:4px solid #ef4444; }
+
+.stats-row{ display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-bottom:28px; }
+.stat-card{ background:white; border-radius:14px; padding:22px; box-shadow:0 2px 8px rgba(0,0,0,0.05); display:flex; align-items:center; gap:16px; }
+.stat-icon{ width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+.stat-icon.pending{ background:#fef3c7; color:#92400e; }
+.stat-icon.done{ background:#dcfce7; color:#166534; }
+.stat-info p{ font-size:12px; color:#94a3b8; font-weight:500; margin-bottom:3px; }
+.stat-info h3{ font-size:24px; font-weight:700; }
+
+.section-card{ background:white; border-radius:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05); margin-bottom:24px; }
+.section-head{ display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid #f1f5f9; }
+.section-head h3{ font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
+.count-badge{ background:#f8fafc; color:#475569; font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; }
+
+.empty-state{ padding:55px 20px; text-align:center; color:#94a3b8; }
+.empty-state i{ font-size:34px; margin-bottom:12px; display:block; }
+
+.bill-card{ border-bottom:1px solid #f1f5f9; padding:20px 22px; }
+.bill-card:last-child{ border-bottom:none; }
+
+.bill-card-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+.bill-card-top h4{ font-size:15px; font-weight:600; }
+.bill-card-top .td-sub{ font-size:12px; color:#94a3b8; margin-top:3px; }
+
+.charge-list{ border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-bottom:14px; }
+.charge-row{ display:flex; justify-content:space-between; align-items:center; padding:11px 14px; border-bottom:1px solid #f8fafc; font-size:13.5px; }
+.charge-row:last-child{ border-bottom:none; }
+.charge-row .charge-label{ font-weight:500; }
+.charge-row .charge-meta{ font-size:11px; color:#94a3b8; margin-top:2px; }
+.charge-row .charge-amount{ font-weight:600; display:flex; align-items:center; gap:10px; }
+.charge-row .charge-actions{ display:flex; gap:6px; }
+.charge-row .charge-actions button{ background:none; border:none; cursor:pointer; color:#94a3b8; font-size:13px; padding:4px; }
+.charge-row .charge-actions button:hover{ color:#1e293b; }
+
+.total-line{ display:flex; justify-content:space-between; align-items:center; padding:14px 0 4px; font-size:15px; font-weight:700; }
+
+.bill-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+
+.btn-action{ padding:8px 14px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; transition:0.2s; border:none; display:inline-flex; align-items:center; gap:7px; }
+.btn-outline{ background:white; color:#475569; border:1.5px solid #e2e8f0; }
+.btn-outline:hover{ background:#f8fafc; }
+.btn-pay{ background:#166534; color:white; }
+.btn-pay:hover{ background:#14532d; }
+.btn-view{ background:white; color:#475569; border:1.5px solid #e2e8f0; }
+
+.badge{ padding:5px 11px; border-radius:20px; font-size:11px; font-weight:600; display:inline-block; }
+.badge-done{ background:#dcfce7; color:#166534; }
+
+.modal-overlay{ position:fixed; inset:0; background:rgba(15,23,42,0.55); display:none; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+.modal-overlay.open{ display:flex; }
+.modal{ background:white; border-radius:16px; width:100%; max-width:480px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+.modal-header{ background:#1e293b; color:white; padding:20px 24px; display:flex; justify-content:space-between; align-items:center; }
+.modal-header h3{ font-size:15px; font-weight:600; }
+.modal-close{ background:transparent; border:none; color:#cbd5e1; font-size:22px; cursor:pointer; }
+.modal-close:hover{ color:white; }
+.modal-body{ padding:24px; }
+.modal-footer{ padding:18px 24px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end; gap:12px; }
+
+.m-group{ margin-bottom:16px; }
+.m-group label{ display:block; font-size:11px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+.m-group input, .m-group select{ width:100%; padding:11px 13px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; outline:none; font-family:'Inter',sans-serif; }
+.m-group input:focus, .m-group select:focus{ border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+
+.btn-submit{ padding:10px 22px; background:#1e293b; color:white; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
+.btn-submit:hover{ background:#334155; }
+.btn-cancel{ padding:10px 18px; background:white; color:#64748b; border:1.5px solid #e2e8f0; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; }
+
+.pay-total-box{ background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:14px 16px; margin-bottom:16px; text-align:center; }
+.pay-total-box .amount{ font-size:24px; font-weight:700; color:#166534; }
+.pay-total-box .label{ font-size:12px; color:#166534; font-weight:500; }
+
+@media(max-width:768px){
+  body{ flex-direction:column; }
+  .sidebar{ width:100%; }
+  .main{ padding:20px; }
+  .stats-row{ grid-template-columns:1fr; }
+  .bill-actions{ flex-direction:column; }
+  .bill-actions button, .bill-actions form{ width:100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>PMS</h2>
+  <a href="/dashboard">Dashboard</a>
+  <a href="/billing/queue" class="active">Billing Queue</a>
+  <a href="/billing/pricebook">Bill Book</a>
+  <a href="/settings">Settings</a>
+</div>
+
+<div class="main">
+
+  <div class="topbar">
+    <h2>Billing Queue</h2>
+    <span><%= name %></span>
+  </div>
+
+  <% if (success && success.length > 0) { %>
+    <div class="flash flash-success"><i class="bi bi-check-circle"></i> <%= success %></div>
+  <% } %>
+  <% if (error && error.length > 0) { %>
+    <div class="flash flash-error"><i class="bi bi-exclamation-circle"></i> <%= error %></div>
+  <% } %>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon pending"><i class="bi bi-hourglass-split"></i></div>
+      <div class="stat-info"><p>Awaiting Payment</p><h3><%= pendingVisits.length %></h3></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon done"><i class="bi bi-check-circle"></i></div>
+      <div class="stat-info"><p>Paid Today</p><h3><%= paidToday.length %></h3></div>
+    </div>
+  </div>
+
+  <!-- AWAITING PAYMENT -->
+  <div class="section-card">
+    <div class="section-head">
+      <h3><i class="bi bi-hourglass-split"></i> Awaiting Payment <span class="count-badge"><%= pendingVisits.length %></span></h3>
+    </div>
+
+    <% if (pendingVisits.length === 0) { %>
+      <div class="empty-state"><i class="bi bi-receipt"></i><p>No patients waiting to pay</p></div>
+    <% } else { %>
+      <% pendingVisits.forEach(function(visit) { %>
+      <div class="bill-card">
+        <div class="bill-card-top">
+          <div>
+            <h4><%= visit.patient.name %></h4>
+            <div class="td-sub">
+              <%= visit.patient.patientID %> · Doctor: <%= visit.doctor ? visit.doctor.name : '—' %> ·
+              <%= new Date(visit.createdAt).toLocaleDateString('en-GB') %>
+            </div>
+          </div>
+        </div>
+
+        <div class="charge-list">
+          <% (visit.billing && visit.billing.charges ? visit.billing.charges : []).forEach(function(charge) { %>
+          <div class="charge-row">
+            <div>
+              <div class="charge-label"><%= charge.label %></div>
+              <div class="charge-meta">
+                <%= charge.category %>
+                <% if (charge.editedAt) { %> · edited<% } %>
+                <% if (charge.source === 'pharmacy') { %> · from pharmacy<% } %>
+              </div>
+            </div>
+            <div class="charge-amount">
+              GHS <%= charge.amount.toFixed(2) %>
+              <% if (charge.source !== 'pharmacy') { %>
+              <div class="charge-actions">
+                <button type="button" title="Edit amount"
+                  onclick="openEditCharge('<%= visit._id %>', '<%= charge._id %>', <%= charge.amount %>, '<%= charge.label.replace(/'/g, "\\'") %>')">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form method="POST" action="/billing/<%= visit._id %>/charges/<%= charge._id %>/remove" style="display:inline;">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" title="Remove"><i class="bi bi-x-lg"></i></button>
+                </form>
+              </div>
+              <% } %>
+            </div>
+          </div>
+          <% }) %>
+        </div>
+
+        <div class="total-line">
+          <span>Total Due</span>
+          <span>GHS <%= (visit.billing && visit.billing.totalAmount ? visit.billing.totalAmount : 0).toFixed(2) %></span>
+        </div>
+
+        <div class="bill-actions">
+          <button type="button" class="btn-action btn-outline" onclick="openAddCharge('<%= visit._id %>')">
+            <i class="bi bi-plus-lg"></i> Add Charge
+          </button>
+          <button type="button" class="btn-action btn-pay"
+            onclick="openPayModal('<%= visit._id %>', '<%= visit.patient.name.replace(/'/g, "\\'") %>', <%= visit.billing && visit.billing.totalAmount ? visit.billing.totalAmount : 0 %>)">
+            <i class="bi bi-cash-coin"></i> Confirm Payment
+          </button>
+        </div>
+      </div>
+      <% }) %>
+    <% } %>
+  </div>
+
+  <!-- PAID TODAY -->
+  <div class="section-card">
+    <div class="section-head">
+      <h3><i class="bi bi-check-circle"></i> Paid Today <span class="count-badge"><%= paidToday.length %></span></h3>
+    </div>
+
+    <% if (paidToday.length === 0) { %>
+      <div class="empty-state"><i class="bi bi-clipboard-check"></i><p>No payments recorded yet today</p></div>
+    <% } else { %>
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:#fafafa; border-bottom:1px solid #f1f5f9;">
+          <th style="padding:13px 18px; font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; text-align:left;">Patient</th>
+          <th style="padding:13px 18px; font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; text-align:left;">Amount</th>
+          <th style="padding:13px 18px; font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; text-align:left;">Method</th>
+          <th style="padding:13px 18px; font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; text-align:left;">Receipt</th>
+          <th style="padding:13px 18px; font-size:11px; font-weight:600; color:#94a3b8; text-transform:uppercase; text-align:left;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% paidToday.forEach(function(visit) { %>
+        <tr style="border-bottom:1px solid #f8fafc;">
+          <td style="padding:15px 18px; font-size:14px;">
+            <div style="font-weight:600;"><%= visit.patient.name %></div>
+            <div class="td-sub"><%= visit.patient.patientID %></div>
+          </td>
+          <td style="padding:15px 18px; font-size:14px; font-weight:600;">
+            GHS <%= visit.billing.totalAmount.toFixed(2) %>
+          </td>
+          <td style="padding:15px 18px; font-size:14px;"><%= visit.billing.paymentMethod %></td>
+          <td style="padding:15px 18px; font-size:14px;"><%= visit.billing.receiptNumber %></td>
+          <td style="padding:15px 18px;">
+            <a class="btn-action btn-view" href="/billing/receipt/<%= visit._id %>" target="_blank">
+              <i class="bi bi-printer"></i> Receipt
+            </a>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+
+</div>
+
+<!-- ADD CHARGE MODAL -->
+<div class="modal-overlay" id="addChargeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="bi bi-plus-lg"></i> Add Charge</h3>
+      <button class="modal-close" onclick="closeAddCharge()">✕</button>
+    </div>
+    <form method="POST" id="addChargeForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="modal-body">
+        <div class="m-group">
+          <label>Bill Book Item</label>
+          <select name="priceItemId" id="addChargeSelect" onchange="onPriceItemChange()">
+            <option value="">— Custom charge —</option>
+            <% priceItems.forEach(function(item) { %>
+              <option value="<%= item._id %>" data-amount="<%= item.price %>">
+                <%= item.name %> (<%= item.category %>) — GHS <%= item.price.toFixed(2) %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div id="customChargeFields">
+          <div class="m-group">
+            <label>Description</label>
+            <input type="text" name="label" placeholder="e.g. Wound dressing">
+          </div>
+          <div class="m-group">
+            <label>Amount (GHS)</label>
+            <input type="number" name="amount" step="0.01" min="0" placeholder="0.00">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeAddCharge()">Cancel</button>
+        <button type="submit" class="btn-submit">Add Charge</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT CHARGE MODAL -->
+<div class="modal-overlay" id="editChargeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="bi bi-pencil"></i> Edit Charge</h3>
+      <button class="modal-close" onclick="closeEditCharge()">✕</button>
+    </div>
+    <form method="POST" id="editChargeForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="modal-body">
+        <div class="m-group">
+          <label id="editChargeLabelText">Amount (GHS)</label>
+          <input type="number" name="amount" id="editChargeAmount" step="0.01" min="0" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeEditCharge()">Cancel</button>
+        <button type="submit" class="btn-submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CONFIRM PAYMENT MODAL -->
+<div class="modal-overlay" id="payModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="bi bi-cash-coin"></i> Confirm Payment</h3>
+      <button class="modal-close" onclick="closePayModal()">✕</button>
+    </div>
+    <form method="POST" id="payForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="modal-body">
+        <div class="pay-total-box">
+          <div class="label" id="payPatientName">Patient</div>
+          <div class="amount" id="payTotalDisplay">GHS 0.00</div>
+        </div>
+
+        <div class="m-group">
+          <label>Payment Method</label>
+          <select name="paymentMethod" required>
+            <option value="">Select method</option>
+            <option value="Mobile Money">Mobile Money</option>
+            <option value="POS/Card">POS / Card</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+
+        <div class="m-group">
+          <label>Reference (optional — momo transaction ID, POS slip no.)</label>
+          <input type="text" name="paymentReference" placeholder="e.g. MOMO-XXXXXX">
+        </div>
+
+        <div class="m-group">
+          <label>Amount Received (GHS)</label>
+          <input type="number" name="amountReceived" id="payAmountReceived" step="0.01" min="0" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closePayModal()">Cancel</button>
+        <button type="submit" class="btn-submit"><i class="bi bi-check-lg"></i> Confirm &amp; Print Receipt</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAddCharge(visitId){
+  document.getElementById('addChargeForm').action = '/billing/' + visitId + '/charges/add';
+  document.getElementById('addChargeSelect').value = '';
+  onPriceItemChange();
+  document.getElementById('addChargeModal').classList.add('open');
+}
+function closeAddCharge(){ document.getElementById('addChargeModal').classList.remove('open'); }
+
+function onPriceItemChange(){
+  var select = document.getElementById('addChargeSelect');
+  var customFields = document.getElementById('customChargeFields');
+  customFields.style.display = select.value ? 'none' : 'block';
+}
+
+function openEditCharge(visitId, chargeId, amount, label){
+  document.getElementById('editChargeForm').action = '/billing/' + visitId + '/charges/' + chargeId + '/edit';
+  document.getElementById('editChargeAmount').value = amount;
+  document.getElementById('editChargeLabelText').textContent = 'Amount for: ' + label + ' (GHS)';
+  document.getElementById('editChargeModal').classList.add('open');
+}
+function closeEditCharge(){ document.getElementById('editChargeModal').classList.remove('open'); }
+
+function openPayModal(visitId, patientName, total){
+  document.getElementById('payForm').action = '/billing/' + visitId + '/pay';
+  document.getElementById('payPatientName').textContent = patientName;
+  document.getElementById('payTotalDisplay').textContent = 'GHS ' + total.toFixed(2);
+  document.getElementById('payAmountReceived').value = total.toFixed(2);
+  document.getElementById('payModal').classList.add('open');
+}
+function closePayModal(){ document.getElementById('payModal').classList.remove('open'); }
+
+document.getElementById('addChargeModal').addEventListener('click', function(e){ if (e.target === this) closeAddCharge(); });
+document.getElementById('editChargeModal').addEventListener('click', function(e){ if (e.target === this) closeEditCharge(); });
+document.getElementById('payModal').addEventListener('click', function(e){ if (e.target === this) closePayModal(); });
+</script>
+
+</body>
+</html>

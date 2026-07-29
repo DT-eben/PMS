@@ -188,10 +188,107 @@ body { background:#f4f6f9; }
         <textarea name="diagnosis" class="form-control" rows="2"><%= visit.diagnosis || "" %></textarea>
       </div>
 
-      <div class="mb-3">
-        <label class="form-label">Prescription</label>
-        <textarea name="prescription" class="form-control" rows="2"><%= visit.prescription || "" %></textarea>
-      </div>
+   <div class="mb-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <label class="form-label fw-bold mb-0">
+            Prescription
+        </label>
+
+        <button
+            type="button"
+            class="btn btn-sm btn-primary"
+            onclick="addDrugRow()">
+
+            <i class="bi bi-plus-lg"></i>
+            Add Drug
+
+        </button>
+    </div>
+
+    <div id="drugContainer">
+
+        <% if(visit.prescriptions && visit.prescriptions.length){ %>
+
+            <% visit.prescriptions.forEach(function(drug){ %>
+
+            <div class="drug-row card p-3 mb-3">
+
+                <div class="row">
+
+                    <div class="col-md-4 mb-2">
+                        <label>Drug</label>
+                        <input
+                            class="form-control"
+                            name="drugName[]"
+                            value="<%= drug.drugName %>">
+                    </div>
+
+                    <div class="col-md-2 mb-2">
+                        <label>Dosage</label>
+                        <input
+                            class="form-control"
+                            name="dosage[]"
+                            value="<%= drug.dosage %>">
+                    </div>
+
+                    <div class="col-md-2 mb-2">
+                        <label>Frequency</label>
+                        <input
+                            class="form-control"
+                            name="frequency[]"
+                            value="<%= drug.frequency %>">
+                    </div>
+
+                    <div class="col-md-2 mb-2">
+                        <label>Duration</label>
+                        <input
+                            class="form-control"
+                            name="duration[]"
+                            value="<%= drug.duration %>">
+                    </div>
+
+                    <div class="col-md-2 mb-2">
+                        <label>Route</label>
+
+                        <select
+                            class="form-select"
+                            name="route[]">
+
+                            <option value="Oral">Oral</option>
+                            <option value="IV">IV</option>
+                            <option value="IM">IM</option>
+                            <option value="Topical">Topical</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-12 mt-2">
+
+                        <label>Notes</label>
+
+                        <textarea
+                            class="form-control"
+                            name="drugNotes[]"><%= drug.notes %></textarea>
+
+                    </div>
+
+                </div>
+
+             <button type="button" class="btn btn-danger removeDrug">
+    <i class="bi bi-trash"></i>
+</button>
+
+            </div>
+
+            <% }) %>
+
+        <% } %>
+
+    </div>
+
+</div>
 
       <div class="mb-3">
         <label class="form-label">Additional Notes</label>
@@ -404,6 +501,87 @@ if (externalLabBtn) {
   });
 
 }
+
+
+function addDrugRow(prefill) {
+  prefill = prefill || {};
+ 
+  const container = document.getElementById('drugContainer');
+ 
+  const row = document.createElement('div');
+  row.className = 'drug-row card p-3 mb-3';
+ 
+  row.innerHTML = `
+    <div class="row">
+      <div class="col-md-4 mb-2">
+        <label>Drug</label>
+        <input class="form-control" name="drugName[]" value="${escapeAttr(prefill.drugName)}">
+      </div>
+      <div class="col-md-2 mb-2">
+        <label>Dosage</label>
+        <input class="form-control" name="dosage[]" value="${escapeAttr(prefill.dosage)}">
+      </div>
+      <div class="col-md-2 mb-2">
+        <label>Frequency</label>
+        <input class="form-control" name="frequency[]" value="${escapeAttr(prefill.frequency)}">
+      </div>
+      <div class="col-md-2 mb-2">
+        <label>Duration</label>
+        <input class="form-control" name="duration[]" value="${escapeAttr(prefill.duration)}">
+      </div>
+      <div class="col-md-2 mb-2">
+        <label>Route</label>
+        <select class="form-select" name="route[]">
+          <option value="Oral">Oral</option>
+          <option value="IV">IV</option>
+          <option value="IM">IM</option>
+          <option value="Topical">Topical</option>
+        </select>
+      </div>
+      <div class="col-12 mt-2">
+        <label>Notes</label>
+        <textarea class="form-control" name="drugNotes[]">${escapeHtml(prefill.notes)}</textarea>
+      </div>
+    </div>
+    <button type="button" class="btn btn-danger removeDrug">
+      <i class="bi bi-trash"></i>
+    </button>
+  `;
+ 
+  // set the select's value programmatically (can't do it via the template above)
+  if (prefill.route) {
+    const routeSelect = row.querySelector('select[name="route[]"]');
+    if (routeSelect) routeSelect.value = prefill.route;
+  }
+ 
+  row.querySelector('.removeDrug').addEventListener('click', function () {
+    row.remove();
+  });
+ 
+  container.appendChild(row);
+}
+ 
+function escapeAttr(val) {
+  return escapeHtml(val).replace(/"/g, '&quot;');
+}
+ 
+function escapeHtml(val) {
+  if (!val) return '';
+  return String(val)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+ 
+// Wire up remove buttons for any rows already rendered server-side
+// (i.e. when re-opening a visit that already has prescriptions saved)
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('#drugContainer .removeDrug').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.closest('.drug-row').remove();
+    });
+  });
+});
 </script>
 
 </body>

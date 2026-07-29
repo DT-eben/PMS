@@ -23,7 +23,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.log(err));
 
 const app = express();
-app.set("trust proxy", 1);
+
 app.set("views", __dirname + "/views");
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: false }));
@@ -164,10 +164,106 @@ function sanitizeInput(value) {
   return validator.escape(String(value).trim());
 }
 
+
+// ── DRUG NAME MATCHING (place near your other helper functions, e.g. below sanitizeInput) ──
+
+// Standard edit-distance algorithm: counts the minimum number of
+// single-character insertions/deletions/substitutions to turn one
+// string into another. "Paracetmol" vs "Paracetamol" = distance 1.
+function levenshtein(a, b) {
+  a = String(a).toLowerCase();
+  b = String(b).toLowerCase();
+
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(
+          dp[i - 1][j],     // deletion
+          dp[i][j - 1],     // insertion
+          dp[i - 1][j - 1]  // substitution
+        );
+      }
+    }
+  }
+
+  return dp[m][n];
+}
+
+// Defensive stringifier — never lets a non-string value reach String()
+// and produce "[object Object]". Used as a safety net at the display/
+// matching layer (does NOT fix already-corrupted data already saved).
+function drugNameText(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+  if (value && typeof value === "object") return Object.values(value).filter(Boolean).join(", ");
+  return value == null ? "" : String(value);
+}
+
+// Resolves a (possibly mistyped) prescribed drug name against your
+// inventory. Rules, deliberately conservative:
+//   1. Exact case-insensitive name match always wins outright.
+//   2. Otherwise, look for inventory drugs within a small edit distance
+//      (1 letter for short names, 2 for longer ones).
+//   3. If exactly ONE drug is that close -> treat it as a match, but
+//      flag it as "fuzzy" so the UI can show it was auto-corrected.
+//   4. If TWO OR MORE drugs are equally close -> refuse to guess.
+//      Guessing wrong here means dispensing/pricing the wrong drug,
+//      which is worse than just asking a human to check.
+function resolveDrug(name, allDrugs) {
+  const cleanName = drugNameText(name).trim();
+
+  if (!cleanName) {
+    return { drug: null, matchType: "none" };
+  }
+
+  const lower = cleanName.toLowerCase();
+
+  const exact = allDrugs.find(d => d.name.toLowerCase() === lower);
+  if (exact) {
+    return { drug: exact, matchType: "exact" };
+  }
+
+  const maxDistance = lower.length <= 4 ? 1 : 2;
+
+  const candidates = [];
+  for (const d of allDrugs) {
+    const dist = levenshtein(lower, d.name.toLowerCase());
+    if (dist <= maxDistance) {
+      candidates.push({ drug: d, dist });
+    }
+  }
+
+  if (candidates.length === 0) {
+    return { drug: null, matchType: "none" };
+  }
+
+  candidates.sort((a, b) => a.dist - b.dist);
+  const bestDistance = candidates[0].dist;
+  const bestMatches  = candidates.filter(c => c.dist === bestDistance);
+
+  if (bestMatches.length === 1) {
+    return { drug: bestMatches[0].drug, matchType: "fuzzy", distance: bestDistance };
+  }
+
+  // two or more equally-close candidates — too risky to auto-pick
+  return { drug: null, matchType: "ambiguous" };
+}
+
+
 const User                  = require("./model/user");
 const Patient               = require("./model/patient");
 const Visit                 = require("./model/visit");
 const Admission             = require("./model/admission");
+const Drug                  = require("./model/drugs");
+const PriceItem             = require("./model/priceItem");
 const generatePatientSummary = require("./generatePatientSummary");
 
 app.get("/login", (req, res) => {
@@ -1369,27 +1465,68 @@ app.post("/visit/:id/doctor", allow("doctor"), async (req, res) => {
       return res.redirect("/queue");
     }
 
-    const complaint    = sanitizeInput(req.body.complaint);
-    const observation  = sanitizeInput(req.body.observation);
-    const diagnosis    = sanitizeInput(req.body.diagnosis);
-    const prescription = sanitizeInput(req.body.prescription);
-    const notes        = sanitizeInput(req.body.notes);
-    const tests        = sanitizeInput(req.body.tests);
-    const status       = sanitizeInput(req.body.status);
+    const complaint   = sanitizeInput(req.body.complaint);
+    const observation = sanitizeInput(req.body.observation);
+    const diagnosis   = sanitizeInput(req.body.diagnosis);
+    const notes       = sanitizeInput(req.body.notes);
+    const tests       = sanitizeInput(req.body.tests);
+    const status      = sanitizeInput(req.body.status);
 
-    visit.complaint    = complaint;
-    visit.observation  = observation;
-    visit.diagnosis    = diagnosis;
-    visit.prescription = prescription;
-    visit.notes        = notes;
-    visit.tests        = tests;
-    visit.doctor       = req.session.userId;
+    // Accepts EITHER key shape:
+    //  - req.body.drugName            (qs / extended:true — brackets stripped, the norm)
+    //  - req.body["drugName[]"]       (raw querystring / extended:false — brackets kept)
+    // Whichever one actually has data wins. This is the real fix: the old
+    // code only ever checked the bracketed key, which your body parser
+    // never populates, so the per-index array logic below was silently
+    // never running on real data.
+    function pickArrayField(bracketKey, plainKey) {
+      const val = req.body[bracketKey] !== undefined ? req.body[bracketKey] : req.body[plainKey];
+      return [].concat(val === undefined || val === null ? [] : val);
+    }
+
+    // Coerces ANY value (string, array, object, undefined) down to a single
+    // clean string. This is the field-level backstop: even if a value ever
+    // arrives as an array or object again for any reason, this guarantees
+    // Mongo only ever receives readable text — never "[object Object]".
+    function textOf(v) {
+      if (v === undefined || v === null) return '';
+      if (typeof v === 'string') return v;
+      if (Array.isArray(v)) return v.filter(Boolean).join(', ');
+      if (typeof v === 'object') return Object.values(v).filter(Boolean).join(', ');
+      return String(v);
+    }
+
+    const drugNames    = pickArrayField("drugName[]", "drugName");
+    const dosages      = pickArrayField("dosage[]", "dosage");
+    const frequencies  = pickArrayField("frequency[]", "frequency");
+    const durations    = pickArrayField("duration[]", "duration");
+    const routes       = pickArrayField("route[]", "route");
+    const drugNotesArr = pickArrayField("drugNotes[]", "drugNotes");
+
+    const prescriptions = drugNames
+      .map((name, i) => ({
+        drugName:  sanitizeInput(textOf(name)),
+        dosage:    sanitizeInput(textOf(dosages[i])),
+        frequency: sanitizeInput(textOf(frequencies[i])),
+        duration:  sanitizeInput(textOf(durations[i])),
+        route:     sanitizeInput(textOf(routes[i])),
+        notes:     sanitizeInput(textOf(drugNotesArr[i]))
+      }))
+      .filter(p => p.drugName.trim() !== '');
+
+    visit.complaint     = complaint;
+    visit.observation    = observation;
+    visit.diagnosis      = diagnosis;
+    visit.notes          = notes;
+    visit.tests          = tests;
+    visit.doctor         = req.session.userId;
+    visit.prescriptions  = prescriptions;
 
     if (status === "lab") {
       visit.status  = "lab";
       visit.labType = "internal";
     } else if (status === "completed") {
-      visit.status = "completed";
+      visit.status = prescriptions.length > 0 ? "pharmacy" : "billing";
     } else {
       if (visit.status !== "lab-complete") {
         visit.status = "in-progress";
@@ -1411,7 +1548,7 @@ app.post("/visit/:id/doctor", allow("doctor"), async (req, res) => {
 // ── EXTERNAL LAB — doctor only ──
 app.post("/visit/:id/external-lab", allow("doctor"), async (req, res) => {
   try {
-    const { externalLabName, tests, complaint, observation, diagnosis, prescription, notes } = req.body;
+    const { externalLabName, tests, complaint, observation, diagnosis, notes } = req.body;
 
     const visit = await Visit.findById(req.params.id).populate("patient");
 
@@ -1424,8 +1561,31 @@ app.post("/visit/:id/external-lab", allow("doctor"), async (req, res) => {
     visit.observation  = sanitizeInput(observation);
     visit.tests        = sanitizeInput(tests);
     visit.diagnosis    = sanitizeInput(diagnosis);
-    visit.prescription = sanitizeInput(prescription);
     visit.notes        = sanitizeInput(notes);
+
+    // same bracket-array parsing as /visit/:id/doctor — this form can also
+    // carry prescriptions[] if the doctor filled drugs before sending externally
+    const drugNames    = [].concat(req.body["drugName[]"]  || []);
+    const dosages      = [].concat(req.body["dosage[]"]    || []);
+    const frequencies  = [].concat(req.body["frequency[]"] || []);
+    const durations    = [].concat(req.body["duration[]"]  || []);
+    const routes       = [].concat(req.body["route[]"]     || []);
+    const drugNotesArr = [].concat(req.body["drugNotes[]"] || []);
+
+    const prescriptions = drugNames
+      .map((name, i) => ({
+        drugName:  sanitizeInput(drugNameText(name)),
+        dosage:    sanitizeInput(dosages[i]),
+        frequency: sanitizeInput(frequencies[i]),
+        duration:  sanitizeInput(durations[i]),
+        route:     sanitizeInput(routes[i]),
+        notes:     sanitizeInput(drugNotesArr[i])
+      }))
+      .filter(p => p.drugName);
+
+    if (prescriptions.length > 0) {
+      visit.prescriptions = prescriptions;
+    }
 
     visit.status            = "lab";
     visit.labType           = "external";
@@ -1525,9 +1685,11 @@ app.post("/visit/:id/resume-external", allow("nurse", "admin"), async (req, res)
     visit.complaint    = req.body.complaint    || visit.complaint;
     visit.observation  = req.body.observation  || visit.observation;
     visit.diagnosis    = req.body.diagnosis    || visit.diagnosis;
-    visit.prescription = req.body.prescription || visit.prescription;
     visit.notes        = req.body.notes        || visit.notes;
     visit.tests        = req.body.tests        || visit.tests;
+    // removed: visit.prescription = ... — that field doesn't exist on the
+    // schema anymore (replaced by prescriptions[]), this route doesn't
+    // collect drug rows so there's nothing to set here
 
     visit.externalLabStatus      = "completed";
     visit.externalLabCompletedAt = new Date();
@@ -1546,7 +1708,6 @@ app.post("/visit/:id/resume-external", allow("nurse", "admin"), async (req, res)
     res.redirect("back");
   }
 });
-
 // ── SETTINGS — everyone ──
 app.get("/settings", isLoggedIn, async (req, res) => {
   try {
@@ -1988,6 +2149,946 @@ app.post("/doctor/duty/end", allow("doctor"), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.redirect("/queue");
+  }
+});
+// ── PHARMACY QUEUE — pharmacist only ──
+app.get("/pharmacy", allow("pharmacist"), async (req, res) => {
+  try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    // first-come-first-serve: oldest visit at the top
+    const pending = await Visit.find({ status: "pharmacy" })
+      .populate("patient")
+      .populate("doctor")
+      .sort({ createdAt: 1 });
+
+    const completed = await Visit.find({
+      status: { $in: ["billing", "paid", "completed"] },
+      pharmacyCompletedAt: { $gte: startOfDay }
+    })
+      .populate("patient")
+      .populate("doctor")
+      .sort({ pharmacyCompletedAt: -1 });
+
+    // name -> { sellingPrice, quantityInStock } — sent to the browser so the
+    // dispense modal can show price + stock status live, without the
+    // pharmacist typing anything but quantity
+    const allDrugs = await Drug.find({}, "name sellingPrice quantityInStock");
+    const drugPriceMap = {};
+    allDrugs.forEach(d => {
+      drugPriceMap[d.name.toLowerCase()] = {
+        sellingPrice:    d.sellingPrice,
+        quantityInStock: d.quantityInStock
+      };
+    });
+
+    res.render("pharmacy", {
+      pending,
+      completed,
+      drugPriceMap,
+      name:    req.session.name,
+      role:    req.session.role,
+      success: req.flash("success"),
+      error:   req.flash("error")
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.send("Error loading pharmacy queue");
+  }
+});
+
+function escapeRegExp(string) {
+  return String(string).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ── PHARMACY DISPENSE POST — pharmacist only ──
+app.post("/pharmacy/dispense", allow("pharmacist"), async (req, res) => {
+  try {
+    const { visitId, pharmacyNotes, drugCount } = req.body;
+
+    const visit = await Visit.findById(visitId);
+    if (!visit) {
+      req.flash("error", "Visit not found");
+      return res.redirect("/pharmacy");
+    }
+
+    const count    = parseInt(drugCount) || 0;
+    const allDrugs = await Drug.find(); // full docs — we mutate & save stock levels
+
+    const dispensedDrugs  = [];
+    const autoCorrected   = [];
+    const shortfallDrugs  = [];
+    const unavailableDrugs = [];
+    let drugFee = 0;
+
+    for (let i = 0; i < count; i++) {
+      const rawName          = sanitizeInput(req.body[`drugName_${i}`]);
+      const quantityRequested = parseFloat(req.body[`requestedQty_${i}`]) || 0;
+      const quantitySubmitted = parseFloat(req.body[`quantity_${i}`]) || 0;
+
+      if (!rawName) continue; // skip empty rows entirely
+
+      const { drug: inventoryDrug, matchType } = resolveDrug(rawName, allDrugs);
+
+      let drugNameForRecord = rawName;
+      if (matchType === "fuzzy") {
+        autoCorrected.push(`${rawName} → ${inventoryDrug.name}`);
+        drugNameForRecord = inventoryDrug.name;
+      }
+
+      let unitCost         = 0;
+      let quantityDispensed = 0;
+      let totalCost         = 0;
+      let outOfStock        = false;
+      let notInInventory     = false;
+
+      if (inventoryDrug) {
+        unitCost = inventoryDrug.sellingPrice;
+        const available = inventoryDrug.quantityInStock;
+
+        if (available <= 0) {
+          // completely out of stock — never dispensable, never chargeable
+          quantityDispensed = 0;
+          outOfStock = true;
+          unavailableDrugs.push(drugNameForRecord);
+
+        } else {
+          // never trust the client blindly — re-clamp server side to
+          // whatever's actually on the shelf and whatever was requested
+          const wanted = Math.max(quantityRequested, quantitySubmitted, 0);
+          quantityDispensed = Math.min(wanted, available);
+
+          if (quantityDispensed > 0) {
+            inventoryDrug.quantityInStock -= quantityDispensed;
+            await inventoryDrug.save();
+          }
+
+          if (wanted > quantityDispensed) {
+            outOfStock = true; // shortfall — goes on the print slip
+            shortfallDrugs.push(`${drugNameForRecord} (${quantityDispensed} of ${wanted})`);
+          }
+        }
+
+        totalCost = quantityDispensed * unitCost;
+
+      } else {
+        // not in inventory at all (includes "ambiguous" fuzzy matches) —
+        // we have no reliable price or stock info, so this can never be
+        // charged or dispensed through the system. Always unavailable.
+        notInInventory    = true;
+        outOfStock         = true;
+        quantityDispensed  = 0;
+        unitCost           = 0;
+        totalCost          = 0;
+        unavailableDrugs.push(
+          matchType === "ambiguous"
+            ? `${drugNameForRecord} (multiple close matches — please verify manually)`
+            : drugNameForRecord
+        );
+      }
+
+      dispensedDrugs.push({
+        drugName:          drugNameForRecord,
+        quantityRequested: Math.max(quantityRequested, quantitySubmitted, 0),
+        quantity:          quantityDispensed,
+        unitCost,
+        totalCost,
+        outOfStock,
+        notInInventory,
+        dispensedBy: req.session.userId,
+        dispensedAt: new Date()
+      });
+
+      drugFee += totalCost;
+    }
+
+    visit.dispensedDrugs      = dispensedDrugs;
+    visit.pharmacyNotes       = sanitizeInput(pharmacyNotes);
+    visit.pharmacyCompletedAt = new Date();
+    visit.pharmacyCompletedBy = req.session.userId;
+
+    if (!visit.billing) visit.billing = {};
+    visit.billing.drugFee = drugFee;
+
+    visit.status = "billing";
+
+    await visit.save();
+
+    const notFullyDispensedCount = dispensedDrugs.filter(d => d.outOfStock).length;
+
+    let message = "Drugs dispensed and visit sent to billing";
+    if (notFullyDispensedCount > 0) {
+      message += `. ${notFullyDispensedCount} item(s) could not be fully dispensed — a takeaway slip is ready to print.`;
+    }
+    if (autoCorrected.length > 0) {
+      message += ` Auto-corrected spelling: ${autoCorrected.join(", ")}.`;
+    }
+
+    req.flash("success", message);
+
+    if (notFullyDispensedCount > 0) {
+      return res.redirect(`/pharmacy/print/${visit._id}`);
+    }
+
+    return res.redirect("/pharmacy");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong");
+    res.redirect("/pharmacy");
+  }
+});
+
+// ── PHARMACY PRINT SLIP — pharmacist, admin ──
+app.get("/pharmacy/print/:visitId", allow("pharmacist", "admin"), async (req, res) => {
+  try {
+    const visit = await Visit.findById(req.params.visitId)
+      .populate("patient")
+      .populate("doctor");
+
+    if (!visit) {
+      req.flash("error", "Visit not found");
+      return res.redirect("/pharmacy");
+    }
+
+    const missingDrugs = (visit.dispensedDrugs || [])
+      .filter(d => d.outOfStock)
+      .map(d => {
+        const rx = (visit.prescriptions || []).find(
+          p => drugNameText(p.drugName).toLowerCase() === drugNameText(d.drugName).toLowerCase()
+        );
+        const given  = d.quantity || 0;
+        const needed = d.quantityRequested || given;
+
+        return {
+          drugName:  drugNameText(d.drugName),
+          dosage:    rx ? rx.dosage    : "",
+          frequency: rx ? rx.frequency : "",
+          duration:  rx ? rx.duration  : "",
+          route:     rx ? rx.route     : "",
+          notInInventory:  !!d.notInInventory,
+          quantityGiven:   given,
+          quantityNeeded:  needed,
+          quantityShort:   Math.max(needed - given, 0)
+        };
+      });
+
+    res.render("pharmacyPrint", {
+      visit,
+      patient:      visit.patient,
+      doctor:       visit.doctor,
+      missingDrugs,
+      printedAt:    new Date(),
+      printedBy:    req.session.name
+    });
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Could not load the print slip");
+    res.redirect("/pharmacy");
+  }
+});
+
+
+// ── DRUG INVENTORY — pharmacy, admin ──
+app.get("/inventory", allow("pharmacist", "admin"), async (req, res) => {
+  try {
+    const { search, category, stockStatus } = req.query;
+
+    const now  = new Date();
+    const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days out
+
+    let query = {};
+
+    if (search && search.trim()) {
+      const re = new RegExp(search.trim(), "i");
+      query.$or = [
+        { name:         re },
+        { genericName:  re },
+        { batchNumber:  re },
+        { serialNumber: re }
+      ];
+    }
+
+    if (category) {
+      query.category = category;
+    }
+
+    if (stockStatus === "low") {
+      query.$expr = {
+        $and: [
+          { $gt:  ["$quantityInStock", 0] },
+          { $lte: ["$quantityInStock", "$reorderLevel"] }
+        ]
+      };
+    } else if (stockStatus === "out") {
+      query.quantityInStock = { $lte: 0 };
+    } else if (stockStatus === "expiring") {
+      query.expiryDate = { $gte: now, $lte: soon };
+    } else if (stockStatus === "expired") {
+      query.expiryDate = { $lt: now };
+    }
+
+    const drugs = await Drug.find(query).sort({ name: 1 });
+
+    // stats computed off the FULL collection, not the filtered view
+    const allDrugs = await Drug.find();
+
+    const totalDrugs = allDrugs.length;
+
+    const lowStock = allDrugs.filter(
+      d => d.quantityInStock > 0 && d.quantityInStock <= d.reorderLevel
+    ).length;
+
+    const outOfStock = allDrugs.filter(d => d.quantityInStock <= 0).length;
+
+    const expiringSoon = allDrugs.filter(
+      d => d.expiryDate && d.expiryDate >= now && d.expiryDate <= soon
+    ).length;
+
+    const categoriesRaw = await Drug.distinct("category");
+    const categories = categoriesRaw.filter(Boolean).sort();
+
+    res.render("inventory", {
+      drugs,
+      totalDrugs,
+      lowStock,
+      outOfStock,
+      expiringSoon,
+      categories,
+      search:      search      || "",
+      category:    category    || "",
+      stockStatus: stockStatus || "",
+      name:    req.session.name,
+      role:    req.session.role,
+      success: req.flash("success"),
+      error:   req.flash("error")
+    });
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Error loading inventory");
+    res.redirect("/dashboard");
+  }
+});
+
+// ── ADD NEW DRUG ──
+app.post("/inventory/add", allow("pharmacist", "admin"), async (req, res) => {
+  try {
+    const name         = sanitizeInput(req.body.name);
+    const genericName  = sanitizeInput(req.body.genericName);
+    const category     = sanitizeInput(req.body.category);
+    const form         = sanitizeInput(req.body.form);
+    const strength     = sanitizeInput(req.body.strength);
+    const unit         = sanitizeInput(req.body.unit);
+    const manufacturer = sanitizeInput(req.body.manufacturer);
+    const batchNumber  = sanitizeInput(req.body.batchNumber);
+    const serialNumber = sanitizeInput(req.body.serialNumber);
+
+    const quantityInStock = parseFloat(req.body.quantityInStock) || 0;
+    const reorderLevel    = parseFloat(req.body.reorderLevel)    || 10;
+    const costPrice        = parseFloat(req.body.costPrice)       || 0;
+    const sellingPrice      = parseFloat(req.body.sellingPrice)     || 0;
+    const expiryDate       = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
+
+    if (!name || !category) {
+      req.flash("error", "Drug name and category are required");
+      return res.redirect("/inventory");
+    }
+
+    const newDrug = new Drug({
+      name,
+      genericName,
+      category,
+      form,
+      strength,
+      unit,
+      manufacturer,
+      batchNumber,
+      serialNumber,
+      quantityInStock,
+      reorderLevel,
+      costPrice,
+      sellingPrice,
+      expiryDate,
+      addedBy:         req.session.userId,
+      lastRestockedAt: new Date(),
+      priceHistory: [{
+        batchNumber,
+        quantityAdded: quantityInStock,
+        costPrice,
+        sellingPrice,
+        expiryDate,
+        note:      "Initial stock",
+        changedBy: req.session.userId
+      }]
+    });
+
+    await newDrug.save();
+
+    req.flash("success", `${name} added to inventory`);
+    res.redirect("/inventory");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong adding the drug");
+    res.redirect("/inventory");
+  }
+});
+
+// ── RESTOCK (new batch — quantity + price can change here) ──
+app.post("/inventory/:id/restock", allow("pharmacist", "admin"), async (req, res) => {
+  try {
+    const drug = await Drug.findById(req.params.id);
+
+    if (!drug) {
+      req.flash("error", "Drug not found");
+      return res.redirect("/inventory");
+    }
+
+    const quantityAdded = parseFloat(req.body.quantityAdded) || 0;
+    const costPrice      = req.body.costPrice    !== "" ? parseFloat(req.body.costPrice)    : NaN;
+    const sellingPrice   = req.body.sellingPrice !== "" ? parseFloat(req.body.sellingPrice) : NaN;
+    const batchNumber   = sanitizeInput(req.body.batchNumber);
+    const expiryDate    = req.body.expiryDate ? new Date(req.body.expiryDate) : drug.expiryDate;
+    const note          = sanitizeInput(req.body.note);
+
+    if (quantityAdded <= 0) {
+      req.flash("error", "Quantity added must be greater than zero");
+      return res.redirect("/inventory");
+    }
+
+    drug.quantityInStock += quantityAdded;
+
+    if (!isNaN(costPrice))    drug.costPrice    = costPrice;
+    if (!isNaN(sellingPrice)) drug.sellingPrice = sellingPrice;
+    if (batchNumber)          drug.batchNumber  = batchNumber;
+    if (expiryDate)           drug.expiryDate   = expiryDate;
+
+    drug.lastRestockedAt = new Date();
+
+    drug.priceHistory.push({
+      batchNumber:  batchNumber || drug.batchNumber,
+      quantityAdded,
+      costPrice:    drug.costPrice,
+      sellingPrice: drug.sellingPrice,
+      expiryDate:   drug.expiryDate,
+      note,
+      changedBy: req.session.userId
+    });
+
+    await drug.save();
+
+    req.flash("success", `${drug.name} restocked successfully`);
+    res.redirect("/inventory");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong restocking this drug");
+    res.redirect("/inventory");
+  }
+});
+
+// ── EDIT DRUG DETAILS (descriptive fields only — price/stock changes go through Restock) ──
+app.post("/inventory/:id/edit", allow("pharmacist", "admin"), async (req, res) => {
+  try {
+    const name         = sanitizeInput(req.body.name);
+    const genericName  = sanitizeInput(req.body.genericName);
+    const category     = sanitizeInput(req.body.category);
+    const form         = sanitizeInput(req.body.form);
+    const strength     = sanitizeInput(req.body.strength);
+    const unit         = sanitizeInput(req.body.unit);
+    const manufacturer = sanitizeInput(req.body.manufacturer);
+    const serialNumber = sanitizeInput(req.body.serialNumber);
+    const reorderLevel = parseFloat(req.body.reorderLevel) || 10;
+
+    if (!name || !category) {
+      req.flash("error", "Drug name and category are required");
+      return res.redirect("/inventory");
+    }
+
+    await Drug.findByIdAndUpdate(req.params.id, {
+      name, genericName, category, form, strength, unit,
+      manufacturer, serialNumber, reorderLevel
+    });
+
+    req.flash("success", "Drug details updated");
+    res.redirect("/inventory");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong updating this drug");
+    res.redirect("/inventory");
+  }
+});
+
+// ── DISCONTINUE / REACTIVATE DRUG (soft toggle — keeps history intact) ──
+app.post("/inventory/:id/toggle-status", allow("pharmacist", "admin"), async (req, res) => {
+  try {
+    const drug = await Drug.findById(req.params.id);
+
+    if (!drug) {
+      req.flash("error", "Drug not found");
+      return res.redirect("/inventory");
+    }
+
+    drug.status = drug.status === "active" ? "discontinued" : "active";
+    await drug.save();
+
+    req.flash("success", `${drug.name} marked as ${drug.status}`);
+    res.redirect("/inventory");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong");
+    res.redirect("/inventory");
+  }
+});
+
+// ── DELETE DRUG (removes entirely — dispensed history stores drug names as
+//    plain strings on the Visit, not a reference, so past records are unaffected) ──
+app.post("/inventory/:id/delete", allow("pharmacist", "admin"), async (req, res) => {
+  try {
+    const drug = await Drug.findByIdAndDelete(req.params.id);
+
+    if (!drug) {
+      req.flash("error", "Drug not found");
+      return res.redirect("/inventory");
+    }
+
+    req.flash("success", `${drug.name} removed from inventory`);
+    res.redirect("/inventory");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong removing this drug");
+    res.redirect("/inventory");
+  }
+});
+
+
+
+// ───────────────────────────────────────────────────────────
+// BILL BOOK (price list) — cashier, admin
+// ───────────────────────────────────────────────────────────
+app.get("/billing/pricebook", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const items = await PriceItem.find().sort({ category: 1, name: 1 });
+
+    res.render("billingPricebook", {
+      items,
+      name:    req.session.name,
+      role:    req.session.role,
+      success: req.flash("success"),
+      error:   req.flash("error")
+    });
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Error loading the bill book");
+    res.redirect("/dashboard");
+  }
+});
+
+app.post("/billing/pricebook/add", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const name     = sanitizeInput(req.body.name);
+    const category = sanitizeInput(req.body.category);
+    const price    = parseFloat(req.body.price) || 0;
+
+    if (!name || !category) {
+      req.flash("error", "Name and category are required");
+      return res.redirect("/billing/pricebook");
+    }
+
+    const newItem = new PriceItem({
+      name,
+      category,
+      price,
+      createdBy: req.session.userId,
+      updatedBy: req.session.userId,
+      priceHistory: [{
+        price,
+        note:      "Initial price",
+        changedBy: req.session.userId
+      }]
+    });
+
+    await newItem.save();
+
+    req.flash("success", `${name} added to the bill book`);
+    res.redirect("/billing/pricebook");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong adding this item");
+    res.redirect("/billing/pricebook");
+  }
+});
+
+// Price edits ALWAYS go through here so the audit trail (who/when) is captured.
+// Name/category edits don't need a price-history entry, so they're handled
+// separately below in the same route based on what actually changed.
+app.post("/billing/pricebook/:id/edit", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const item = await PriceItem.findById(req.params.id);
+
+    if (!item) {
+      req.flash("error", "Item not found");
+      return res.redirect("/billing/pricebook");
+    }
+
+    const name     = sanitizeInput(req.body.name);
+    const category = sanitizeInput(req.body.category);
+    const newPrice = parseFloat(req.body.price);
+    const note     = sanitizeInput(req.body.note);
+
+    if (!name || !category) {
+      req.flash("error", "Name and category are required");
+      return res.redirect("/billing/pricebook");
+    }
+
+    const priceChanged = !isNaN(newPrice) && newPrice !== item.price;
+
+    item.name     = name;
+    item.category = category;
+    item.updatedBy = req.session.userId;
+
+    if (priceChanged) {
+      item.price = newPrice;
+      item.priceHistory.push({
+        price:     newPrice,
+        note:      note || "Price updated",
+        changedBy: req.session.userId
+      });
+    }
+
+    await item.save();
+
+    req.flash("success", `${item.name} updated`);
+    res.redirect("/billing/pricebook");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong updating this item");
+    res.redirect("/billing/pricebook");
+  }
+});
+
+app.post("/billing/pricebook/:id/toggle", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const item = await PriceItem.findById(req.params.id);
+
+    if (!item) {
+      req.flash("error", "Item not found");
+      return res.redirect("/billing/pricebook");
+    }
+
+    item.active    = !item.active;
+    item.updatedBy = req.session.userId;
+    await item.save();
+
+    req.flash("success", `${item.name} marked as ${item.active ? "active" : "inactive"}`);
+    res.redirect("/billing/pricebook");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong");
+    res.redirect("/billing/pricebook");
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// BILLING QUEUE — cashier, admin
+// ───────────────────────────────────────────────────────────
+//
+// A visit lands here once pharmacy sets status:"billing". The FIRST time
+// a given visit is opened in this queue, we auto-seed its charge lines
+// (Consultation + Drug fee if any) from the Bill Book / pharmacy data,
+// then save that onto the visit so further edits persist. We deliberately
+// do NOT try to auto-guess Lab Test / Admission charges — tests are a free
+// text field, not a controlled list, so the cashier adds those manually
+// from the Bill Book dropdown to avoid charging the wrong thing.
+app.get("/billing/queue", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const pendingVisits = await Visit.find({ status: "billing" })
+      .populate("patient")
+      .populate("doctor")
+      .sort({ createdAt: 1 });
+
+    const paidToday = await Visit.find({
+      status: "completed",
+      "billing.paidAt": { $gte: startOfDay }
+    })
+      .populate("patient")
+      .populate("doctor")
+      .sort({ "billing.paidAt": -1 });
+
+    // Auto-seed charges for any visit that hasn't been opened here yet
+    const consultationItem = await PriceItem.findOne({ category: "Consultation", active: true }).sort({ createdAt: 1 });
+
+    for (const visit of pendingVisits) {
+      if (!visit.billing) visit.billing = {};
+
+      if (!visit.billing.charges || visit.billing.charges.length === 0) {
+        const seededCharges = [];
+
+        seededCharges.push({
+          label:    consultationItem ? consultationItem.name : "Consultation (set price in Bill Book)",
+          category: "Consultation",
+          amount:   consultationItem ? consultationItem.price : 0,
+          source:   "pricebook",
+          addedBy:  req.session.userId,
+          addedAt:  new Date()
+        });
+
+        if (visit.billing.drugFee && visit.billing.drugFee > 0) {
+          seededCharges.push({
+            label:    "Drugs (Pharmacy)",
+            category: "Drug",
+            amount:   visit.billing.drugFee,
+            source:   "pharmacy",
+            addedBy:  req.session.userId,
+            addedAt:  new Date()
+          });
+        }
+
+        visit.billing.charges = seededCharges;
+        visit.billing.totalAmount = seededCharges.reduce((sum, c) => sum + c.amount, 0);
+        await visit.save();
+      }
+    }
+
+    const priceItems = await PriceItem.find({ active: true }).sort({ category: 1, name: 1 });
+
+    res.render("billingQueue", {
+      pendingVisits,
+      paidToday,
+      priceItems,
+      name:    req.session.name,
+      role:    req.session.role,
+      csrfToken: res.locals.csrfToken,
+      success: req.flash("success"),
+      error:   req.flash("error")
+    });
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Error loading billing queue");
+    res.redirect("/dashboard");
+  }
+});
+
+function recomputeTotal(visit) {
+  visit.billing.totalAmount = (visit.billing.charges || []).reduce((sum, c) => sum + (c.amount || 0), 0);
+}
+
+// Add a charge line — either picked from the Bill Book (priceItemId) or a
+// fully custom one-off charge (label + amount typed directly).
+app.post("/billing/:visitId/charges/add", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const visit = await Visit.findById(req.params.visitId);
+
+    if (!visit) {
+      req.flash("error", "Visit not found");
+      return res.redirect("/billing/queue");
+    }
+
+    const priceItemId = req.body.priceItemId;
+    let label, category, amount;
+
+    if (priceItemId) {
+      const item = await PriceItem.findById(priceItemId);
+      if (!item) {
+        req.flash("error", "Selected bill book item not found");
+        return res.redirect("/billing/queue");
+      }
+      label    = item.name;
+      category = item.category;
+      amount   = item.price;
+    } else {
+      label    = sanitizeInput(req.body.label);
+      category = "Other";
+      amount   = parseFloat(req.body.amount) || 0;
+
+      if (!label) {
+        req.flash("error", "Please enter a charge description");
+        return res.redirect("/billing/queue");
+      }
+    }
+
+    if (!visit.billing) visit.billing = { charges: [] };
+    if (!visit.billing.charges) visit.billing.charges = [];
+
+    visit.billing.charges.push({
+      label,
+      category,
+      amount,
+      source:  priceItemId ? "pricebook" : "manual",
+      addedBy: req.session.userId,
+      addedAt: new Date()
+    });
+
+    recomputeTotal(visit);
+    await visit.save();
+
+    req.flash("success", `${label} added to the bill`);
+    res.redirect("/billing/queue");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong adding this charge");
+    res.redirect("/billing/queue");
+  }
+});
+
+// Edit the amount on an existing charge line — records who edited it.
+app.post("/billing/:visitId/charges/:chargeId/edit", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const visit = await Visit.findById(req.params.visitId);
+
+    if (!visit) {
+      req.flash("error", "Visit not found");
+      return res.redirect("/billing/queue");
+    }
+
+    const charge = visit.billing.charges.id(req.params.chargeId);
+
+    if (!charge) {
+      req.flash("error", "Charge not found");
+      return res.redirect("/billing/queue");
+    }
+
+    const newAmount = parseFloat(req.body.amount);
+    if (isNaN(newAmount) || newAmount < 0) {
+      req.flash("error", "Please enter a valid amount");
+      return res.redirect("/billing/queue");
+    }
+
+    charge.amount   = newAmount;
+    charge.editedBy = req.session.userId;
+    charge.editedAt = new Date();
+
+    recomputeTotal(visit);
+    await visit.save();
+
+    req.flash("success", `${charge.label} updated`);
+    res.redirect("/billing/queue");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong updating this charge");
+    res.redirect("/billing/queue");
+  }
+});
+
+app.post("/billing/:visitId/charges/:chargeId/remove", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const visit = await Visit.findById(req.params.visitId);
+
+    if (!visit) {
+      req.flash("error", "Visit not found");
+      return res.redirect("/billing/queue");
+    }
+
+    visit.billing.charges = visit.billing.charges.filter(
+      c => c._id.toString() !== req.params.chargeId
+    );
+
+    recomputeTotal(visit);
+    await visit.save();
+
+    req.flash("success", "Charge removed");
+    res.redirect("/billing/queue");
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong removing this charge");
+    res.redirect("/billing/queue");
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// CONFIRM PAYMENT — cashier, admin
+// ───────────────────────────────────────────────────────────
+// No payment gateway is involved. The patient has already paid via
+// Mobile Money or POS outside the system; the cashier is only confirming
+// that money was received and recording how, before printing the receipt.
+app.post("/billing/:visitId/pay", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const visit = await Visit.findById(req.params.visitId);
+
+    if (!visit) {
+      req.flash("error", "Visit not found");
+      return res.redirect("/billing/queue");
+    }
+
+    const paymentMethod    = sanitizeInput(req.body.paymentMethod);
+    const paymentReference = sanitizeInput(req.body.paymentReference);
+    const amountReceived   = parseFloat(req.body.amountReceived) || 0;
+
+    if (!paymentMethod) {
+      req.flash("error", "Please select how payment was received");
+      return res.redirect("/billing/queue");
+    }
+
+    recomputeTotal(visit);
+
+    const receiptNumber = "RCT" + Date.now().toString().slice(-8);
+
+    visit.billing.paymentMethod    = paymentMethod;
+    visit.billing.paymentReference = paymentReference;
+    visit.billing.amountReceived   = amountReceived;
+    visit.billing.receiptNumber    = receiptNumber;
+    visit.billing.paidAt           = new Date();
+    visit.billing.paidBy           = req.session.userId;
+
+    visit.status = "completed";
+
+    await visit.save();
+
+    req.flash("success", `Payment confirmed. Receipt ${receiptNumber} ready to print.`);
+    return res.redirect(`/billing/receipt/${visit._id}`);
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Something went wrong confirming payment");
+    res.redirect("/billing/queue");
+  }
+});
+
+// ───────────────────────────────────────────────────────────
+// PRINTABLE RECEIPT — cashier, admin
+// ───────────────────────────────────────────────────────────
+app.get("/billing/receipt/:visitId", allow("cashier", "admin"), async (req, res) => {
+  try {
+    const visit = await Visit.findById(req.params.visitId)
+      .populate("patient")
+      .populate("doctor")
+      .populate("billing.paidBy", "name");
+
+    if (!visit) {
+      req.flash("error", "Visit not found");
+      return res.redirect("/billing/queue");
+    }
+
+    res.render("billingReceipt", {
+      visit,
+      patient:   visit.patient,
+      doctor:    visit.doctor,
+      printedAt: new Date(),
+      printedBy: req.session.name
+    });
+
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Could not load the receipt");
+    res.redirect("/billing/queue");
   }
 });
 

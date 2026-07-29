@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMS - Pharmacy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Inter',sans-serif;
+}
+
+body{
+  display:flex;
+  background:#f1f5f9;
+  min-height:100vh;
+  color:#0f172a;
+}
+
+/* SIDEBAR */
+.sidebar{
+  width:220px;
+  background:#1e293b;
+  color:white;
+  padding:20px;
+  flex-shrink:0;
+}
+
+.sidebar h2{
+  margin-bottom:20px;
+  font-size:18px;
+  font-weight:600;
+}
+
+.sidebar a{
+  display:block;
+  color:white;
+  text-decoration:none;
+  padding:12px;
+  border-radius:8px;
+  margin-bottom:8px;
+  font-size:14px;
+  transition:0.2s;
+}
+
+.sidebar a:hover,
+.sidebar .active{
+  background:#3b82f6;
+}
+
+/* MAIN */
+.main{
+  flex:1;
+  padding:30px;
+  overflow-y:auto;
+}
+
+/* TOPBAR */
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:28px;
+}
+
+.topbar h2{
+  font-size:20px;
+  font-weight:600;
+  color:#0f172a;
+}
+
+.topbar span{
+  font-size:14px;
+  color:#64748b;
+  font-weight:500;
+}
+
+/* FLASH */
+.flash{
+  padding:12px 18px;
+  border-radius:10px;
+  margin-bottom:20px;
+  font-size:14px;
+  font-weight:500;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.flash-success{
+  background:#dcfce7;
+  color:#166534;
+  border-left:4px solid #22c55e;
+}
+
+.flash-error{
+  background:#fee2e2;
+  color:#991b1b;
+  border-left:4px solid #ef4444;
+}
+
+/* STATS */
+.stats-row{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+  margin-bottom:28px;
+}
+
+.stat-card{
+  background:white;
+  border-radius:14px;
+  padding:22px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+
+.stat-icon{
+  width:48px;
+  height:48px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+  flex-shrink:0;
+}
+
+.stat-icon.pending{ background:#fef3c7; color:#92400e; }
+.stat-icon.done{ background:#dcfce7; color:#166534; }
+.stat-icon.total{ background:#dbeafe; color:#1d4ed8; }
+
+.stat-info p{ font-size:12px; color:#94a3b8; font-weight:500; margin-bottom:3px; }
+.stat-info h3{ font-size:24px; font-weight:700; color:#0f172a; }
+
+/* SECTION CARD */
+.section-card{
+  background:white;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  margin-bottom:24px;
+}
+
+.section-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:18px 22px;
+  border-bottom:1px solid #f1f5f9;
+}
+
+.section-head h3{
+  font-size:14px;
+  font-weight:600;
+  color:#0f172a;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.count-badge{
+  background:#f8fafc;
+  color:#475569;
+  font-size:12px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:20px;
+}
+
+/* TABLE */
+table{ width:100%; border-collapse:collapse; }
+thead tr{ background:#fafafa; border-bottom:1px solid #f1f5f9; }
+thead th{
+  padding:13px 18px;
+  font-size:11px;
+  font-weight:600;
+  color:#94a3b8;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  text-align:left;
+}
+tbody tr{ border-bottom:1px solid #f8fafc; transition:0.2s; }
+tbody tr:last-child{ border-bottom:none; }
+tbody tr:hover{ background:#fafafa; }
+tbody td{ padding:16px 18px; font-size:14px; color:#1e293b; vertical-align:middle; }
+.td-sub{ font-size:12px; color:#94a3b8; margin-top:3px; }
+
+/* QUEUE NUMBER */
+.queue-num{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:#1e293b;
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  font-weight:700;
+}
+
+/* BADGES */
+.badge{ padding:5px 11px; border-radius:20px; font-size:11px; font-weight:600; display:inline-block; }
+.badge-pending{ background:#fef3c7; color:#92400e; }
+.badge-done{ background:#dcfce7; color:#166534; }
+.badge-instock{ background:#dcfce7; color:#166534; }
+.badge-out{ background:#fee2e2; color:#991b1b; }
+.badge-untracked{ background:#f1f5f9; color:#64748b; }
+.badge-missing{ background:#fee2e2; color:#991b1b; }
+
+/* BUTTONS */
+.btn-action{
+  padding:8px 14px;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  transition:0.2s;
+  border:none;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  text-decoration:none;
+}
+.btn-upload{ background:#1e293b; color:white; }
+.btn-upload:hover{ background:#334155; }
+.btn-view{ background:white; color:#475569; border:1.5px solid #e2e8f0; }
+.btn-view:hover{ background:#f8fafc; color:#1e293b; }
+.btn-print{ background:#fef3c7; color:#92400e; border:1.5px solid #fde68a; }
+.btn-print:hover{ background:#fde68a; }
+
+/* EMPTY */
+.empty-state{ padding:55px 20px; text-align:center; color:#94a3b8; }
+.empty-state i{ font-size:34px; margin-bottom:12px; display:block; }
+.empty-state p{ font-size:14px; }
+
+/* MODAL */
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.55);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+  padding:20px;
+}
+.modal-overlay.open{ display:flex; }
+.modal{
+  background:white;
+  border-radius:16px;
+  width:100%;
+  max-width:600px;
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,0.2);
+}
+.modal-header{
+  background:#1e293b;
+  color:white;
+  padding:20px 24px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.modal-header h3{ font-size:15px; font-weight:600; display:flex; align-items:center; gap:8px; }
+.modal-close{ background:transparent; border:none; color:#cbd5e1; font-size:22px; cursor:pointer; line-height:1; transition:0.2s; }
+.modal-close:hover{ color:white; }
+.modal-body{ padding:24px; max-height:70vh; overflow-y:auto; }
+.modal-footer{
+  padding:18px 24px;
+  border-top:1px solid #f1f5f9;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+.modal-footer-actions{ display:flex; gap:12px; }
+.modal-footer-warning{ font-size:12px; color:#991b1b; font-weight:600; display:none; }
+.modal-footer-warning.show{ display:block; }
+
+/* MODAL FORM */
+.m-group{ margin-bottom:18px; }
+.m-group label{
+  display:block;
+  font-size:11px;
+  font-weight:600;
+  color:#64748b;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  margin-bottom:6px;
+}
+.m-group input,
+.m-group textarea{
+  width:100%;
+  padding:11px 13px;
+  border:1.5px solid #e2e8f0;
+  border-radius:8px;
+  font-size:14px;
+  color:#0f172a;
+  outline:none;
+  transition:0.2s;
+  font-family:'Inter',sans-serif;
+  background:white;
+}
+.m-group input:focus,
+.m-group textarea:focus{
+  border-color:#3b82f6;
+  box-shadow:0 0 0 3px rgba(59,130,246,0.1);
+}
+.m-group input:disabled{ background:#f1f5f9; color:#94a3b8; font-weight:500; cursor:not-allowed; }
+.m-group textarea{ resize:vertical; min-height:110px; }
+
+.m-info-box{
+  background:#f8fafc;
+  border-radius:10px;
+  padding:15px;
+  border:1px solid #e2e8f0;
+  margin-bottom:20px;
+  font-size:13px;
+  color:#475569;
+  line-height:1.8;
+}
+.m-info-box strong{ color:#0f172a; }
+
+/* MODAL BUTTONS */
+.btn-submit{
+  padding:10px 22px;
+  background:#1e293b;
+  color:white;
+  border:none;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.2s;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+}
+.btn-submit:hover{ background:#334155; }
+.btn-submit:disabled{ background:#cbd5e1; cursor:not-allowed; }
+.btn-cancel{
+  padding:10px 18px;
+  background:white;
+  color:#64748b;
+  border:1.5px solid #e2e8f0;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+  transition:0.2s;
+}
+.btn-cancel:hover{ background:#f8fafc; color:#1e293b; }
+
+/* VIEW MODAL */
+.result-block{
+  background:#f8fafc;
+  border-radius:10px;
+  padding:18px;
+  border:1px solid #e2e8f0;
+  font-size:14px;
+  color:#1e293b;
+  line-height:1.8;
+  white-space:pre-wrap;
+  margin-bottom:16px;
+}
+
+/* ── ONE INDEPENDENT CARD PER DRUG ── */
+.drug-cards{ display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
+
+.drug-card{
+  border:1.5px solid #e2e8f0;
+  border-radius:12px;
+  padding:14px 16px;
+  background:white;
+}
+.drug-card.out-of-stock{ background:#fef2f2; border-color:#fecaca; }
+
+.drug-card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:12px;
+}
+.drug-card-name strong{ font-size:14px; color:#0f172a; display:block; }
+.drug-card-name .td-sub{ margin-top:3px; }
+
+.stock-tag{
+  font-size:11px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:20px;
+  display:inline-block;
+  white-space:nowrap;
+  flex-shrink:0;
+}
+.stock-tag.ok{ background:#dcfce7; color:#166534; }
+.stock-tag.low{ background:#fee2e2; color:#991b1b; }
+.stock-tag.none{ background:#fee2e2; color:#991b1b; }
+.stock-tag.untracked{ background:#f1f5f9; color:#64748b; }
+
+.drug-card-bottom{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.drug-card-bottom .field-label{
+  font-size:10px;
+  font-weight:600;
+  color:#94a3b8;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  margin-bottom:5px;
+  display:block;
+}
+.drug-card-bottom input{
+  width:100%;
+  padding:9px 11px;
+  border:1.5px solid #e2e8f0;
+  border-radius:8px;
+  font-size:13px;
+  outline:none;
+}
+.drug-card-bottom input:focus{ border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1); }
+.drug-card-bottom input:disabled{ background:#f1f5f9; color:#94a3b8; cursor:not-allowed; }
+.drug-card .price-hint{ font-size:11px; color:#94a3b8; margin-top:5px; }
+.drug-card .unavailable-note{
+  font-size:12px;
+  color:#991b1b;
+  font-weight:500;
+  background:#fef2f2;
+  border-radius:8px;
+  padding:10px 12px;
+  margin-top:2px;
+}
+
+.drug-view-row{
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  padding:13px 15px;
+  margin-bottom:10px;
+  font-size:13px;
+  color:#1e293b;
+}
+.drug-view-row .oos{ color:#991b1b; font-weight:600; }
+
+/* RESPONSIVE */
+@media(max-width:1000px){ .stats-row{ grid-template-columns:1fr; } }
+
+@media(max-width:768px){
+  body{ flex-direction:column; }
+  .sidebar{ width:100%; }
+  .main{ padding:20px; }
+  .topbar{ flex-direction:column; align-items:flex-start; gap:10px; }
+  .section-card{ overflow-x:auto; }
+  table{ min-width:700px; }
+
+  .drug-card-bottom{ grid-template-columns:1fr; }
+}
+@media (max-width: 768px){
+  .modal-footer{ flex-direction:column-reverse; gap:8px; align-items:stretch; }
+  .modal-footer-actions{ flex-direction:column-reverse; gap:8px; }
+  .modal-footer button,.modal-footer .btn-submit,.modal-footer .btn-cancel{ width:100%; }
+  .section-head{ flex-wrap:wrap; gap:8px; }
+}
+</style>
+</head>
+<body>
+
+<%
+  // ── Safe-stringify + flatten helpers ──────────────────────────────
+  // Some prescription records were saved with drugName (and sometimes
+  // dosage/frequency/duration/route too) as an ARRAY or OBJECT holding
+  // more than one drug's data bundled into a single entry, instead of
+  // separate entries. This is what produced "[object Object]" and
+  // merged two drugs into a single modal row. This guarantees clean,
+  // separate, plain-string entries — one per drug, always.
+
+  function toArray(v) {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === 'object') return Object.values(v);
+    return [v];
+  }
+
+  function textOf(v) {
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v)) return v.filter(Boolean).join(', ');
+    if (v && typeof v === 'object') return Object.values(v).filter(Boolean).join(', ');
+    return v == null ? '' : String(v);
+  }
+
+  // Some legacy records went through TWO different corruption paths:
+  //   1. drugName saved as an ARRAY/OBJECT of multiple drugs (older bug)
+  //   2. drugName saved as a single comma-joined STRING, e.g.
+  //      "paracetamol, vicodine" — this happens when case (1) was
+  //      displayed as plain text, resubmitted untouched, and the
+  //      already-joined text got saved back as one plain string.
+  // splitJoined() only splits a string when the resulting piece COUNT
+  // matches the drug count — so a normal single-drug record whose notes
+  // happen to contain a comma is never touched.
+  function splitJoined(str, expectedCount) {
+    if (typeof str !== 'string') return null;
+    var parts = str.split(',').map(function(s){ return s.trim(); });
+    if (parts.length === expectedCount) return parts;
+    return null;
+  }
+
+  function flattenPrescription(p) {
+    var rawName = p.drugName;
+    var nameParts;
+
+    if (Array.isArray(rawName)) {
+      nameParts = rawName;
+    } else if (rawName && typeof rawName === 'object') {
+      nameParts = Object.values(rawName);
+    } else if (typeof rawName === 'string' && rawName.indexOf(',') !== -1) {
+      nameParts = rawName.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+    } else {
+      nameParts = [rawName];
+    }
+
+    if (nameParts.length <= 1) {
+      return [{
+        drugName:  textOf(rawName),
+        dosage:    textOf(p.dosage),
+        frequency: textOf(p.frequency),
+        duration:  textOf(p.duration),
+        route:     textOf(p.route),
+        notes:     textOf(p.notes)
+      }];
+    }
+
+    var n = nameParts.length;
+
+    var dosageParts    = splitJoined(p.dosage, n)    || toArray(p.dosage);
+    var frequencyParts = splitJoined(p.frequency, n) || toArray(p.frequency);
+    var durationParts  = splitJoined(p.duration, n)  || toArray(p.duration);
+    var routeParts     = splitJoined(p.route, n)     || toArray(p.route);
+    var notesParts     = splitJoined(p.notes, n)     || toArray(p.notes);
+
+    return nameParts.map(function(name, i) {
+      return {
+        drugName:  textOf(name),
+        dosage:    textOf(dosageParts[i]    !== undefined ? dosageParts[i]    : dosageParts[0]),
+        frequency: textOf(frequencyParts[i] !== undefined ? frequencyParts[i] : frequencyParts[0]),
+        duration:  textOf(durationParts[i]  !== undefined ? durationParts[i]  : durationParts[0]),
+        route:     textOf(routeParts[i]     !== undefined ? routeParts[i]     : routeParts[0]),
+        notes:     textOf(notesParts[i]     !== undefined ? notesParts[i]     : notesParts[0])
+      };
+    });
+  }
+%>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <h2>PMS</h2>
+  <a href="/dashboard">Dashboard</a>
+
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/records">Patients</a>
+  <% } %>
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/visits">Visits</a>
+  <% } %>
+  <% if (role === 'admin') { %>
+    <a href="/doctors">Doctors</a>
+  <% } %>
+  <% if (role === 'doctor') { %>
+    <a href="/queue">Queue</a>
+  <% } %>
+  <% if (role === 'admin') { %>
+    <a href="/nurses">Nurses</a>
+  <% } %>
+  <% if (role === 'nurse' || role === 'doctor' || role === 'admin') { %>
+    <a href="/admitted">Admitted</a>
+  <% } %>
+  <% if (role === 'lab') { %>
+    <a href="/lab">Labs</a>
+  <% } %>
+  <% if (role === 'pharmacist') { %>
+    <a href="/pharmacy" class="active"> Pharmacy</a>
+  <% } %>
+  <% if (role === 'pharmacist' || role === 'admin') { %>
+    <a href="/inventory">Inventory</a>
+  <% } %>
+  <% if (role === 'cashier' || role === 'admin') { %>
+    <a href="/billing/queue">Billing Queue</a>
+    <a href="/billing/pricebook">Bill Book</a>
+  <% } %>
+  <a href="/settings">Settings</a>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <div class="topbar">
+    <h2>Pharmacy</h2>
+    <span><%= name %></span>
+  </div>
+
+  <% if (success && success.length > 0) { %>
+    <div class="flash flash-success"><i class="bi bi-check-circle"></i> <%= success %></div>
+  <% } %>
+  <% if (error && error.length > 0) { %>
+    <div class="flash flash-error"><i class="bi bi-exclamation-circle"></i> <%= error %></div>
+  <% } %>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon pending"><i class="bi bi-hourglass-split"></i></div>
+      <div class="stat-info"><p>Pending</p><h3><%= pending.length %></h3></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon done"><i class="bi bi-check-circle"></i></div>
+      <div class="stat-info"><p>Completed Today</p><h3><%= completed.length %></h3></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon total"><i class="bi bi-capsule"></i></div>
+      <div class="stat-info"><p>Total Today</p><h3><%= pending.length + completed.length %></h3></div>
+    </div>
+  </div>
+
+  <!-- PENDING QUEUE -->
+  <div class="section-card">
+    <div class="section-head">
+      <h3><i class="bi bi-hourglass-split"></i> Pharmacy Queue <span class="count-badge"><%= pending.length %></span></h3>
+    </div>
+
+    <% if (pending.length === 0) { %>
+      <div class="empty-state"><i class="bi bi-capsule"></i><p>No pending prescriptions</p></div>
+    <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Patient</th><th>Prescribed Drugs</th><th>Doctor</th><th>Time</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% pending.forEach(function(visit, index) { %>
+        <%
+          var rawRx = visit.prescriptions || [];
+          var flatRx = [];
+          for (var r = 0; r < rawRx.length; r++) {
+            var pieces = flattenPrescription(rawRx[r]);
+            for (var q = 0; q < pieces.length; q++) {
+              if (pieces[q].drugName) flatRx.push(pieces[q]);
+            }
+          }
+        %>
+        <tr>
+          <td><div class="queue-num"><%= index + 1 %></div></td>
+          <td>
+            <div style="font-weight:600;"><%= visit.patient.name %></div>
+            <div class="td-sub"><%= visit.patient.patientID %></div>
+          </td>
+          <td>
+            <%= flatRx.length > 0 ? flatRx.map(function(p){ return p.drugName || 'Unnamed drug'; }).join(', ') : '—' %>
+            <div class="td-sub"><%= flatRx.length %> item(s)</div>
+          </td>
+          <td><%= visit.doctor ? visit.doctor.name : '—' %></td>
+          <td>
+            <div><%= new Date(visit.createdAt).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) %></div>
+            <div class="td-sub"><%= new Date(visit.createdAt).toLocaleDateString('en-GB') %></div>
+          </td>
+          <td>
+            <button class="btn-action btn-upload"
+              data-id="<%= visit._id %>"
+              data-patient="<%= visit.patient.name %>"
+              data-doctor="<%= visit.doctor ? visit.doctor.name : 'Unknown' %>"
+              data-prescriptions='<%- JSON.stringify(flatRx).replace(/'/g, "&#39;") %>'
+              onclick="openDispenseFromBtn(this)">
+              <i class="bi bi-capsule"></i> Dispense Drugs
+            </button>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+
+  <!-- COMPLETED TODAY -->
+  <div class="section-card">
+    <div class="section-head">
+      <h3><i class="bi bi-check-circle"></i> Completed Today <span class="count-badge"><%= completed.length %></span></h3>
+    </div>
+
+    <% if (completed.length === 0) { %>
+      <div class="empty-state"><i class="bi bi-clipboard-check"></i><p>No completed dispensing yet today</p></div>
+    <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Patient</th><th>Drugs Dispensed</th><th>Doctor</th><th>Completed At</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% completed.forEach(function(visit) { %>
+        <% var hasMissing = (visit.dispensedDrugs || []).some(function(d){ return d.outOfStock; }); %>
+        <tr>
+          <td>
+            <div style="font-weight:600;"><%= visit.patient.name %></div>
+            <div class="td-sub"><%= visit.patient.patientID %></div>
+          </td>
+          <td>
+            <%= (visit.dispensedDrugs && visit.dispensedDrugs.length > 0)
+              ? visit.dispensedDrugs.map(function(d){ return textOf(d.drugName); }).join(', ')
+              : '—' %>
+            <% if (hasMissing) { %>
+              <div class="td-sub" style="color:#991b1b;font-weight:600;">
+                <i class="bi bi-exclamation-triangle"></i> Some items not fully dispensed
+              </div>
+            <% } %>
+          </td>
+          <td><%= visit.doctor ? visit.doctor.name : '—' %></td>
+          <td>
+            <%= visit.pharmacyCompletedAt
+              ? new Date(visit.pharmacyCompletedAt).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})
+              : '—' %>
+          </td>
+          <td><span class="badge badge-done"><i class="bi bi-check-lg"></i> Done</span></td>
+          <td style="display:flex; gap:8px;">
+            <button class="btn-action btn-view"
+              data-patient="<%= visit.patient.name %>"
+              data-doctor="<%= visit.doctor ? visit.doctor.name : '—' %>"
+              data-notes="<%= visit.pharmacyNotes ? visit.pharmacyNotes.replace(/'/g, '&#39;') : '' %>"
+              data-drugs='<%- JSON.stringify(visit.dispensedDrugs || []).replace(/'/g, "&#39;") %>'
+              onclick="openViewFromBtn(this)">
+              <i class="bi bi-eye"></i> View
+            </button>
+            <% if (hasMissing) { %>
+              <a class="btn-action btn-print" href="/pharmacy/print/<%= visit._id %>" target="_blank">
+                <i class="bi bi-printer"></i> Print Slip
+              </a>
+            <% } %>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+
+</div>
+
+<!-- DISPENSE MODAL -->
+<div class="modal-overlay" id="dispenseModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="bi bi-capsule"></i> Dispense Drugs</h3>
+      <button class="modal-close" onclick="closeDispense()">✕</button>
+    </div>
+    <form method="POST" action="/pharmacy/dispense" enctype="application/x-www-form-urlencoded" id="dispenseForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="visitId" id="dispense-visit-id">
+      <div class="modal-body">
+        <div class="m-info-box">
+          <div><strong id="dispense-patient"></strong></div>
+          <div style="margin-top:4px;">Doctor: <strong id="dispense-doctor"></strong></div>
+        </div>
+
+        <div id="drug-rows"></div>
+
+        <div class="m-group">
+          <label>Pharmacy Notes (optional)</label>
+          <textarea name="pharmacyNotes" placeholder="Any notes for this dispensing, substitutions, counselling given, etc."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="modal-footer-warning" id="dispense-note" style="color:#64748b;font-weight:500;">
+          Unavailable or short-supply items go on a printable slip automatically.
+        </span>
+        <div class="modal-footer-actions">
+          <button type="button" class="btn-cancel" onclick="closeDispense()">Cancel</button>
+          <button type="submit" class="btn-submit" id="dispenseSubmitBtn"><i class="bi bi-check-lg"></i> Send to Billing</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- VIEW DISPENSED MODAL -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="bi bi-clipboard-data"></i> Dispensing Record</h3>
+      <button class="modal-close" onclick="closeView()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="m-info-box">
+        <div><strong id="view-patient"></strong></div>
+        <div style="margin-top:4px;">Doctor: <strong id="view-doctor"></strong></div>
+      </div>
+      <div class="m-group">
+        <label>Drugs Dispensed</label>
+        <div id="view-drug-list"></div>
+      </div>
+      <div class="m-group" id="view-notes-group" style="display:none;">
+        <label>Pharmacy Notes</label>
+        <div class="result-block" id="view-notes"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" onclick="closeView()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.drugPriceMap = <%- JSON.stringify(drugPriceMap || {}) %>;
+
+function safeText(v){
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.filter(Boolean).join(', ');
+  if (v && typeof v === 'object') return Object.values(v).filter(Boolean).join(', ');
+  return v == null ? '' : String(v);
+}
+
+function openDispenseFromBtn(btn){
+  var id            = btn.dataset.id;
+  var patient       = btn.dataset.patient;
+  var doctor        = btn.dataset.doctor;
+  var prescriptions = JSON.parse(btn.dataset.prescriptions || '[]');
+  openDispense(id, patient, doctor, prescriptions);
+}
+
+// Builds ONE independent <div class="drug-card"> per prescribed drug.
+// Each card has its own name, its own stock badge, its own quantity
+// input (or its own "unavailable" state), and its own running total —
+// none of it is shared or merged with any other drug in the list.
+function openDispense(visitId, patient, doctor, prescriptions) {
+  document.getElementById('dispense-visit-id').value = visitId;
+  document.getElementById('dispense-patient').textContent = patient;
+  document.getElementById('dispense-doctor').textContent = doctor;
+
+  var container = document.getElementById('drug-rows');
+  container.innerHTML = '';
+
+  if (!prescriptions || prescriptions.length === 0) {
+    container.innerHTML = '<p style="font-size:13px;color:#94a3b8;margin-bottom:18px;">No prescriptions recorded for this visit.</p>';
+    document.getElementById('dispenseModal').classList.add('open');
+    return;
+  }
+
+  var wrap = document.createElement('div');
+  wrap.className = 'drug-cards';
+
+  prescriptions.forEach(function(p, i) {
+    var drugName = safeText(p.drugName);
+    var meta = [safeText(p.dosage), safeText(p.frequency), safeText(p.duration), safeText(p.route)]
+      .filter(Boolean).join(' • ');
+    var match = window.drugPriceMap[drugName.toLowerCase()];
+
+    var card = document.createElement('div');
+    card.className = 'drug-card';
+    card.dataset.matched = match ? 'true' : 'false';
+
+    var stockTagHtml, bottomHtml;
+
+    if (match && match.quantityInStock > 0) {
+      card.dataset.price = match.sellingPrice;
+      card.dataset.stock = match.quantityInStock;
+
+      stockTagHtml = '<span class="stock-tag ok" id="stock-' + i + '">' + match.quantityInStock + ' in stock</span>';
+
+      bottomHtml =
+        '<div class="drug-card-bottom">' +
+          '<div>' +
+            '<span class="field-label">Qty to dispense</span>' +
+            '<input type="number" name="quantity_' + i + '" min="1" max="' + match.quantityInStock + '" step="1" ' +
+              'placeholder="e.g. 10" oninput="updateRow(' + i + ')">' +
+            '<input type="hidden" name="requestedQty_' + i + '" id="requested-' + i + '" value="0">' +
+            '<div class="price-hint" id="hint-' + i + '">GHS ' + match.sellingPrice.toFixed(2) + ' / unit</div>' +
+          '</div>' +
+          '<div>' +
+            '<span class="field-label">Total</span>' +
+            '<input type="text" id="total-' + i + '" value="GHS 0.00" disabled>' +
+          '</div>' +
+        '</div>';
+
+    } else if (match) {
+      card.classList.add('out-of-stock');
+      stockTagHtml = '<span class="stock-tag none" id="stock-' + i + '">Out of stock</span>';
+      bottomHtml =
+        '<div class="unavailable-note">This drug has 0 units in stock. It will be recorded as not dispensed (GHS 0.00) and added to the printable purchase slip.</div>' +
+        '<input type="hidden" name="quantity_' + i + '" value="0">' +
+        '<input type="hidden" name="requestedQty_' + i + '" value="0">';
+
+    } else {
+      card.classList.add('out-of-stock');
+      stockTagHtml = '<span class="stock-tag untracked" id="stock-' + i + '">Not tracked</span>';
+      bottomHtml =
+        '<div class="unavailable-note">This drug is not in inventory. It will be recorded as not dispensed (GHS 0.00) and added to the printable purchase slip.</div>' +
+        '<input type="hidden" name="quantity_' + i + '" value="0">' +
+        '<input type="hidden" name="requestedQty_' + i + '" value="0">';
+    }
+
+    card.innerHTML =
+      '<div class="drug-card-top">' +
+        '<div class="drug-card-name">' +
+          '<strong>' + escapeHtml(drugName || 'Unnamed drug') + '</strong>' +
+          '<div class="td-sub">' + escapeHtml(meta || '—') + '</div>' +
+        '</div>' +
+        stockTagHtml +
+      '</div>' +
+      bottomHtml +
+      '<input type="hidden" name="drugName_' + i + '" value="' + escapeHtml(drugName) + '">';
+
+    wrap.appendChild(card);
+  });
+
+  container.appendChild(wrap);
+
+  var countInput = document.createElement('input');
+  countInput.type = 'hidden';
+  countInput.name = 'drugCount';
+  countInput.value = prescriptions.length;
+  container.appendChild(countInput);
+
+  document.getElementById('dispenseModal').classList.add('open');
+}
+
+function updateRow(i){
+  var cards = document.querySelectorAll('.drug-card');
+  var card = cards[i];
+  if (!card || card.dataset.matched !== 'true') return;
+
+  var totalEl = document.getElementById('total-' + i);
+  var available = parseFloat(card.dataset.stock);
+  if (!(available > 0)) { totalEl.value = 'GHS 0.00'; return; }
+
+  var qtyEl    = document.querySelector('input[name="quantity_' + i + '"]');
+  var reqEl    = document.getElementById('requested-' + i);
+  var stockTag = document.getElementById('stock-' + i);
+  var hintEl   = document.getElementById('hint-' + i);
+  var price    = parseFloat(card.dataset.price);
+
+  var requested = parseFloat(qtyEl.value) || 0;
+  if (requested < 0) requested = 0;
+  reqEl.value = requested;
+
+  var dispensed = Math.min(requested, available);
+
+  if (requested > available) {
+    qtyEl.value = available;
+    stockTag.className = 'stock-tag low';
+    stockTag.textContent = 'Only ' + available + ' available';
+    if (hintEl) hintEl.textContent =
+      'Dispensing ' + available + ' of ' + requested + ' requested — ' +
+      (requested - available) + ' more will go on the print slip';
+  } else {
+    stockTag.className = 'stock-tag ok';
+    stockTag.textContent = available + ' in stock';
+    if (hintEl) hintEl.textContent = 'GHS ' + price.toFixed(2) + ' / unit';
+  }
+
+  totalEl.value = 'GHS ' + (dispensed * price).toFixed(2);
+}
+
+function closeDispense() {
+  document.getElementById('dispenseModal').classList.remove('open');
+}
+
+function openViewFromBtn(btn){
+  var patient = btn.dataset.patient;
+  var doctor  = btn.dataset.doctor;
+  var notes   = btn.dataset.notes;
+  var drugs   = JSON.parse(btn.dataset.drugs || '[]');
+  openView(patient, doctor, notes, drugs);
+}
+
+function openView(patient, doctor, notes, drugs) {
+  document.getElementById('view-patient').textContent = patient;
+  document.getElementById('view-doctor').textContent = doctor;
+
+  var list = document.getElementById('view-drug-list');
+  list.innerHTML = '';
+
+  if (!drugs || drugs.length === 0) {
+    list.innerHTML = '<p style="font-size:13px;color:#94a3b8;">No drugs recorded.</p>';
+  } else {
+    drugs.forEach(function(d) {
+      var drugName = safeText(d.drugName);
+      var row = document.createElement('div');
+      row.className = 'drug-view-row';
+
+      var given  = d.quantity || 0;
+      var needed = d.quantityRequested || given;
+
+      if (d.notInInventory) {
+        row.innerHTML = '<strong>' + escapeHtml(drugName) + '</strong> — <span class="oos">Not in inventory — patient must purchase elsewhere</span>';
+      } else if (d.outOfStock && given <= 0) {
+        row.innerHTML = '<strong>' + escapeHtml(drugName) + '</strong> — <span class="oos">Out of stock — not dispensed</span>';
+      } else if (d.outOfStock && given > 0) {
+        row.innerHTML =
+          '<strong>' + escapeHtml(drugName) + '</strong> — ' +
+          given + ' of ' + needed + ' unit(s) dispensed @ GHS ' + (d.unitCost || 0).toFixed(2) +
+          ' = <strong>GHS ' + (d.totalCost || 0).toFixed(2) + '</strong> ' +
+          '<span class="oos">(' + (needed - given) + ' more needed — buy elsewhere)</span>';
+      } else {
+        row.innerHTML =
+          '<strong>' + escapeHtml(drugName) + '</strong> — ' +
+          given + ' unit(s) @ GHS ' + (d.unitCost || 0).toFixed(2) +
+          ' = <strong>GHS ' + (d.totalCost || 0).toFixed(2) + '</strong>';
+      }
+      list.appendChild(row);
+    });
+  }
+
+  var notesGroup = document.getElementById('view-notes-group');
+  if (notes) {
+    document.getElementById('view-notes').textContent = notes;
+    notesGroup.style.display = 'block';
+  } else {
+    notesGroup.style.display = 'none';
+  }
+
+  document.getElementById('viewModal').classList.add('open');
+}
+
+function closeView() {
+  document.getElementById('viewModal').classList.remove('open');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+document.getElementById('dispenseModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDispense();
+});
+document.getElementById('viewModal').addEventListener('click', function(e) {
+  if (e.target === this) closeView();
+});
+</script>
+
+</body>
+</html>
